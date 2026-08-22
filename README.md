@@ -1,86 +1,167 @@
-﻿# Dayflow
+# ⚡ Dayflow — Modern Local-First HR Management System
 
-Dayflow is a local-first HR management system for employee profiles, attendance, leave approval, and salary visibility. It uses a React/Vite client, Express REST API, Prisma/PostgreSQL, Socket.IO for leave updates, local uploads, and MailHog for development email.
+> *"Every workday, perfectly aligned."*
 
-## Current status
+**Dayflow** is a modern, high-performance, local-first HR management workspace tailored for agile teams and growing organizations. It unifies **employee onboarding, live presence tracking, time-off workflow, salary structure design, and real-time notifications** into an ambient glassmorphism UI with zero external cloud dependencies.
 
-The core Dayflow MVP is in place and working locally with the following feature set completed:
+---
 
-- Authentication and authorization with JWT, refresh flow, email verification, role guards, and secure password handling
-- Employee and admin profile management with field-level permissions and document uploads
-- Daily attendance check-in/check-out logic with admin override support and attendance history views
-- Leave application and approval workflows with overlap validation and immediate real-time status updates
-- Payroll salary structure APIs and employee-facing salary visibility
-- Role-based dashboards for employees and HR/admin users
-- Shared Tailwind design system and API-driven frontend structure for a responsive experience
+## 🏆 Project Overview & Highlights
 
-The project is structured to continue with the remaining polish and scale-up work: richer reports, notification flows, additional UX refinements, and broader test coverage.
+* 🏢 **Centralized Team Hub**: Interactive directory with dynamic status indicators, multi-department filtering, and live workforce KPI metrics.
+* ⏱️ **Frictionless Attendance Tracking**: Real-time Check-In / Check-Out widget with elapsed workday counter and monthly summary bento strip.
+* 🌴 **End-to-End Time Off Workflow**: Full 12-month year calendar, balance quotas (Paid, Sick, Unpaid), document attachments, and instant Socket.IO push updates.
+* 💼 **Configurable Payroll & Salary Structure**: Server-computed CTC breakdown (Basic, HRA, Allowances, PF, Tax) with automatic remainder balancing.
+* 🔔 **In-App Notification Center**: Instant alerts on leave approvals, attendance milestones, and administrative updates.
+* 🛡️ **Role-Based Security & Permissions**: Field-level access control for Admin vs. Employee, JWT token rotation, and first-time forced password resets.
+* ✨ **Modern SaaS Aesthetics**: Ambient glassmorphism, responsive bento grids, and Framer Motion micro-interactions.
 
-## What is implemented
+---
 
-- JWT access/refresh authentication, verification-email flow, bcrypt password hashing, role guards, and rate-limited auth endpoints.
-- Prisma data model for users, employee profiles, documents, attendance, leave, salary structures, and notifications.
-- Profile field-level permissions, restricted local file uploads, attendance check-in/out and admin correction routes, leave overlap and decision validation, payroll API, notifications, and Socket.IO leave decision events.
-- Responsive React UI with authenticated routes for dashboard, profile, attendance, leave, payroll, and the HR employee directory. It is driven exclusively by the API, with TanStack Query caching.
-- Shared Tailwind design tokens, layered surfaces, Framer Motion route/list/status interactions, and global reduced-motion support.
+## 🛠️ Architecture & Tech Stack
 
-## Local setup
+| Layer | Technologies |
+|---|---|
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Framer Motion, TanStack Query, Lucide Icons |
+| **Backend** | Node.js, Express, TypeScript, REST API, Socket.IO |
+| **Database & ORM** | PostgreSQL (Dockerized), Prisma ORM |
+| **Authentication** | JWT (Access & Refresh tokens), bcrypt password hashing, Zod validation |
+| **Local Services** | MailHog (SMTP testing), Multer (Local file & avatar uploads) |
 
-1. Install Node.js 20 or newer and Docker Desktop. PostgreSQL does not need to be installed separately; Docker runs it for this project.
-2. From the repository root, install dependencies:
+---
 
+## 🚀 Key Features Walkthrough
+
+### 1. 👥 Directory & Real-Time KPI Bento Grid
+* **Live Metric Cards**: Instant count of Total Employees, Today's Present headcount (with pulsing status indicator), On-Leave count, and Active Teams.
+* **Interactive Filters**: Instant search by Name, Email, or Login ID + Department pills + Status badges (*All, Present, On Leave, Absent*).
+* **Smart Employee Cards**: Surface elevation with teal border glow, designation chips, and quick contact tags.
+
+### 2. 🔐 Authentication & Onboarding
+* **Company Registration**: Fast workspace setup with company logo upload.
+* **System-Generated Login IDs**: Pattern-based unique identifiers (`{CompanyCode}{Name}{Year}{Serial}`).
+* **Secure First Login**: Admin-created employees receive temporary credentials; forced password change on first sign-in.
+* **Email Verification**: Built-in verification loop powered locally via MailHog.
+
+### 3. 🕒 Attendance & Time Tracking
+* **Global Nav Widget**: Check in/out from any page with live elapsed workday timer.
+* **Employee Month View**: Bento summary (Days Present, Leaves, Total Hours) + day-wise history with extra hours calculations.
+* **Admin Date Inspector**: Company-wide daily presence roster with date picker.
+
+### 4. 📅 Time Off & 12-Month Calendar
+* **Balance Strip**: Clear visibility into available vs. total quota for Paid, Sick, and Unpaid leaves.
+* **Full-Year Calendar**: Interactive 12-month grid with color-coded day pills (Paid, Sick, Unpaid) and hover details.
+* **Admin Queue**: Inline approval / rejection modal with required reason comment.
+* **Real-time Push**: Approved/rejected decisions reflect instantly on the employee screen via Socket.IO without page reloads.
+
+### 5. 💰 Salary Structure & Payroll Engine (Admin)
+* **Wage Configuration**: Monthly wage, annual gross CTC calculation, working days, and break duration.
+* **Configurable Components**: Percentage or fixed amounts based on Wage or Basic (Basic, HRA, Standard Allowance, Performance Bonus, LTA).
+* **Auto-Balancing**: `Fixed Allowance` dynamically balances remaining CTC.
+* **PF & Tax Deductions**: Employer/Employee PF percentage splits and customizable tax rules.
+
+---
+
+## 💻 Local Setup Guide
+
+### Prerequisites
+* **Node.js 20+**
+* **Docker Desktop** (for running local PostgreSQL & MailHog)
+
+### Step 1: Install Dependencies
 ```powershell
-cd C:\Users\<your-user>\Desktop\DayFlow
 npm install
 ```
 
-3. Create `server/.env` from the example file:
-
+### Step 2: Configure Environment
 ```powershell
 Copy-Item server\.env.example server\.env
 ```
+*(Optionally verify `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` inside `server/.env`)*
 
-Replace `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` in `server/.env` with two different long random values.
-
-4. Start Docker Desktop, then start PostgreSQL and MailHog:
-
+### Step 3: Start Local Infrastructure
 ```powershell
 docker compose up -d
 ```
 
-5. Apply the committed initial migration and seed demo records:
-
+### Step 4: Run Migrations & Seed Sample Data
 ```powershell
 npm run db:migrate
 npm run db:seed
 ```
 
-6. Run both applications:
-
+### Step 5: Start Application
 ```powershell
 npm run dev
 ```
 
-Leave this terminal running while using the application. Stop it with `Ctrl+C` before starting it again. Starting a second copy causes `EADDRINUSE` errors because ports 4000 and 5173 are already occupied.
+---
 
-The client is at `http://localhost:5173`, API health is at `http://localhost:4000/api/v1/health`, and MailHog is at `http://localhost:8025`.
+## 🌐 Application URLs & Test Credentials
 
-Seed credentials: `admin@dayflow.local` or `employee1@dayflow.local` with password `Welcome@123`.
+| Service | URL |
+|---|---|
+| **Web Application** | [http://localhost:5173](http://localhost:5173) |
+| **REST API Health** | [http://localhost:4000/api/v1/health](http://localhost:4000/api/v1/health) |
+| **MailHog Local Inbox** | [http://localhost:8025](http://localhost:8025) |
 
-## Checks
+### 🔑 Demo Accounts
+
+| Role | Email | Password |
+|---|---|---|
+| **Admin / HR Manager** | `admin@dayflow.local` | `Welcome@123` |
+| **Employee (Design)** | `employee1@dayflow.local` | `Welcome@123` |
+| **Employee (Engineering)** | `employee2@dayflow.local` | `Welcome@123` |
+| **Employee (Marketing)** | `employee3@dayflow.local` | `Welcome@123` |
+| **Employee (Backend)** | `employee4@dayflow.local` | `Welcome@123` |
+
+---
+
+## 📂 Project Structure
+
+```
+DayFlow/
+├── client/                     # Frontend (React 18 + Vite + Tailwind)
+│   ├── src/
+│   │   ├── App.tsx             # Application routes, views & dashboard
+│   │   ├── api.ts              # Axios instance & interceptors
+│   │   ├── auth.tsx            # Auth context provider & hooks
+│   │   ├── components/
+│   │   │   ├── ui.tsx          # Shared glassmorphism UI primitives
+│   │   │   └── motion.tsx      # Framer Motion page & stagger wrappers
+│   │   └── styles.css          # Design system tokens & animations
+│   └── tailwind.config.ts      # Custom Tailwind theme configuration
+├── server/                     # Backend (Node.js + Express + Prisma)
+│   ├── prisma/
+│   │   ├── schema.prisma       # Relational database schema
+│   │   ├── migrations/         # Committed database migrations
+│   │   └── seed.ts             # Demo seed script (Company, Users, Salaries)
+│   └── src/
+│       ├── app.ts              # Express middleware & router mounting
+│       ├── server.ts           # HTTP + Socket.IO server listener
+│       └── modules/            # Modular domain route handlers
+│           ├── auth/           # Authentication & token rotation
+│           ├── users/          # Employee directory & profile CRUD
+│           ├── attendance/     # Check-in/out & work hour computations
+│           ├── leave/          # Leave quota, requests & decisions
+│           ├── payroll/        # Salary wage & component calculations
+│           └── notifications/  # In-app notification endpoints
+└── docker-compose.yml          # Container configuration for Postgres & MailHog
+```
+
+---
+
+## 🔒 Verification & Quality Checks
 
 ```powershell
+# Run TypeScript compilation check
 npm run lint
-npm run build
+
+# Run backend test suite
 npm test
 ```
 
-`npm run lint`, `npm run build`, and `npm test` pass in the repository. Docker is not installed in this execution environment, so applying the initial migration and seeding should be run after Docker is installed locally.
+---
 
-## Notes for the next developer
-
-- The database schema is the source of record at `server/prisma/schema.prisma`; do not edit a database schema by hand. Commit generated Prisma migrations after running `db:migrate`.
-- Uploads are intentionally stored under `server/uploads/` and ignored by Git. Photos accept JPEG/PNG; employee documents accept PDF; both are capped at 5 MB.
-- Current payroll admin API writes salary-history rows (audit-by/effective date). The minimal UI exposes employee read-only salary and HR listing; richer HR editors and report screens remain the next sensible UI increment.
-- Verification email is sent through MailHog during development. In production, set normal SMTP values in `server/.env`.
-ya so done klklkl
+## 📄 License
+This project is built for demonstration and hackathon submission under the **MIT License**.
