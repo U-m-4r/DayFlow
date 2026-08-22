@@ -8,7 +8,7 @@ import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useNavigate, use
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Bell, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Edit2, Eye, EyeOff, FileText,
-  LogOut, Menu, Plane, Plus, Save, Search, User as UserIcon, Users, Wallet, X
+  LogOut, Mail, Menu, Plane, Plus, Save, Search, User as UserIcon, Users, Wallet, X
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { api } from './api';
@@ -19,6 +19,20 @@ import { Button, Chip, Empty, Field, Modal, Select, Skeleton, Status, StatusDot,
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
+
+// ── Email Employee utility ───────────────────────────────────────────────────
+// Validates the address and opens the OS default mail client via mailto:.
+// Returns an error string if the email is missing/invalid, null on success.
+function emailEmployee(employee: { fullName?: string; email?: string }): string | null {
+  const email = employee.email?.trim();
+  if (!email) return 'This employee does not have an email address.';
+  // Basic RFC-5322 sanity check — avoids generating a broken mailto: URL
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'This employee has an invalid email address.';
+  const subject = encodeURIComponent('Regarding your Dayflow HRMS account');
+  const body = encodeURIComponent(`Hi ${employee.fullName || 'there'},\n\n`);
+  window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+  return null;
+}
 
 // ── Guards ──────────────────────────────────────────────────────────────────
 function Guard({ children }: { children: React.ReactNode }) {
@@ -559,31 +573,50 @@ function EmployeesGrid() {
         <Stagger className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {data.items.map((emp: any) => (
             <StaggerItem key={emp.id}>
-              <Link to={`/employees/${emp.id}`}>
-                <motion.div
-                  whileHover={{ y: -2 }}
-                  className="surface relative flex items-center gap-4 p-5 transition-shadow hover:shadow-surface-2"
-                >
-                  {/* Status dot in top-right */}
-                  <span className="absolute right-4 top-4">
-                    <StatusDot status={emp.todayStatus} />
-                  </span>
+              <div className="relative">
+                <Link to={`/employees/${emp.id}`}>
+                  <motion.div
+                    whileHover={{ y: -2 }}
+                    className="surface relative flex items-center gap-4 p-5 transition-shadow hover:shadow-surface-2"
+                  >
+                    {/* Status dot in top-right */}
+                    <span className="absolute right-4 top-4">
+                      <StatusDot status={emp.todayStatus} />
+                    </span>
 
-                  {/* Avatar */}
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-primary text-lg font-bold text-white">
-                    {emp.profilePicture ? (
-                      <img src={`http://localhost:4000${emp.profilePicture}`} alt="" className="h-full w-full rounded-2xl object-cover" />
-                    ) : (
-                      emp.fullName?.charAt(0)?.toUpperCase() || '?'
-                    )}
-                  </div>
+                    {/* Avatar */}
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-primary text-lg font-bold text-white">
+                      {emp.profilePicture ? (
+                        <img src={`http://localhost:4000${emp.profilePicture}`} alt="" className="h-full w-full rounded-2xl object-cover" />
+                      ) : (
+                        emp.fullName?.charAt(0)?.toUpperCase() || '?'
+                      )}
+                    </div>
 
-                  <div className="min-w-0">
-                    <p className="truncate font-bold">{emp.fullName}</p>
-                    <p className="truncate text-sm text-muted">{emp.designation || emp.department || emp.email}</p>
-                  </div>
-                </motion.div>
-              </Link>
+                    <div className="min-w-0">
+                      <p className="truncate font-bold">{emp.fullName}</p>
+                      <p className="truncate text-sm text-muted">{emp.designation || emp.department || emp.email}</p>
+                    </div>
+                  </motion.div>
+                </Link>
+
+                {/* Admin-only: Email Employee action button */}
+                {user?.role === 'ADMIN' && (
+                  <button
+                    id={`email-emp-${emp.id}`}
+                    aria-label={`Email ${emp.fullName || 'employee'}`}
+                    title="Email Employee"
+                    onClick={e => {
+                      e.preventDefault();
+                      const err = emailEmployee({ fullName: emp.fullName, email: emp.email });
+                      if (err) toast(err, 'error');
+                    }}
+                    className="absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-primary/10 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <Mail size={14} />
+                  </button>
+                )}
+              </div>
             </StaggerItem>
           ))}
         </Stagger>
@@ -683,11 +716,28 @@ function EmployeeDetail() {
               p.fullName?.charAt(0)?.toUpperCase() || '?'
             )}
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="font-display text-3xl">{p.fullName}</h1>
             <p className="text-muted">{p.designation} · {employee.loginId}</p>
             <p className="text-sm text-muted">{employee.email} · {employee.phone}</p>
           </div>
+
+          {/* Admin-only: Email Employee button in profile header */}
+          {isAdmin && (
+            <button
+              id={`email-emp-detail-${employee.id}`}
+              aria-label={`Email ${p.fullName || 'employee'}`}
+              title="Email Employee"
+              onClick={() => {
+                const err = emailEmployee({ fullName: p.fullName, email: employee.email });
+                if (err) toast(err, 'error');
+              }}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-muted hover:border-primary hover:bg-primary/5 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
+            >
+              <Mail size={16} />
+              Email Employee
+            </button>
+          )}
         </div>
         <div className="mt-6 flex flex-wrap gap-6 text-sm">
           {p.department && <div><span className="section-title">Department</span><p className="mt-1 font-bold">{p.department}</p></div>}
