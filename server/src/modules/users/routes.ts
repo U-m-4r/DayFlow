@@ -303,6 +303,37 @@ router.patch('/:id', requireAuth, requireRole(Role.ADMIN), async (req, res, next
   } catch (e) { next(e); }
 });
 
+// ── DELETE /users/:id — Admin delete employee ────────────────────────────────
+router.delete('/:id', requireAuth, requireRole(Role.ADMIN), async (req, res, next) => {
+  try {
+    const id = String(req.params.id);
+
+    // Prevent self-deletion
+    if (req.user!.id === id) {
+      return res.status(400).json({ message: 'You cannot delete your own account' });
+    }
+
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) return res.status(404).json({ message: 'Employee not found' });
+
+    // Prevent deleting other admins
+    if (target.role === Role.ADMIN) {
+      return res.status(403).json({ message: 'Cannot delete an admin account' });
+    }
+
+    // Nullify managerId references pointing to this user before deletion
+    await prisma.employeeProfile.updateMany({
+      where: { managerId: id },
+      data: { managerId: null },
+    });
+
+    // Cascade delete handles profile, skills, certs, docs, attendance, leave, salary, notifications
+    await prisma.user.delete({ where: { id } });
+
+    res.json({ message: 'Employee deleted successfully' });
+  } catch (e) { next(e); }
+});
+
 // ── POST /users/:id/documents ────────────────────────────────────────────────
 router.post('/:id/documents', requireAuth, upload.single('file'), async (req, res, next) => {
   try {

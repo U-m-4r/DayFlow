@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient
 import {
   Bell, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Edit2, Eye, EyeOff, FileText,
   LogOut, Menu, Plane, Plus, Save, Search, User as UserIcon, Users, Wallet, X,
-  Building2, MapPin, Mail, Phone, Calendar, ArrowUpRight, Sparkles, Filter, CheckCircle2, Shield
+  Building2, MapPin, Mail, Phone, Calendar, ArrowUpRight, Sparkles, Filter, CheckCircle2, Shield, Trash2
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { api } from './api';
@@ -984,6 +984,8 @@ function EmployeeDetail() {
   const isAdmin = authUser?.role === 'ADMIN';
   const qc = useQueryClient();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: employee, isLoading } = useQuery({
     queryKey: ['employee', id],
@@ -996,6 +998,19 @@ function EmployeeDetail() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['employee', id] });
       toast('Profile updated');
+    },
+  });
+
+  const deleteEmployee = useMutation({
+    mutationFn: () => api.delete(`/users/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employees'] });
+      toast('Employee deleted successfully');
+      navigate('/employees');
+    },
+    onError: (err: any) => {
+      toast(err?.response?.data?.message || 'Failed to delete employee');
+      setConfirmDelete(false);
     },
   });
 
@@ -1072,10 +1087,45 @@ function EmployeeDetail() {
             {saveAdminFields.isError && (
               <p className="mt-2 text-xs font-semibold text-danger">{(saveAdminFields.error as any)?.response?.data?.message || 'Failed to update'}</p>
             )}
-            <Button size="sm" className="mt-4" disabled={saveAdminFields.isPending}>
-              <Save size={14} /> {saveAdminFields.isPending ? 'Saving…' : 'Save Changes'}
-            </Button>
+            <div className="flex items-center gap-4 mt-4">
+              <Button size="sm" disabled={saveAdminFields.isPending}>
+                <Save size={14} /> {saveAdminFields.isPending ? 'Saving…' : 'Save Changes'}
+              </Button>
+              <button
+                type="button"
+                className="text-xs font-semibold text-danger/80 hover:text-danger flex items-center gap-1 transition-colors"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 size={13} /> Delete Employee
+              </button>
+            </div>
           </form>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {confirmDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+            <div className="surface w-full max-w-md p-6 bg-white shadow-2xl relative">
+              <button onClick={() => setConfirmDelete(false)} className="absolute top-4 right-4 text-slate-400 hover:text-ink"><X size={16} /></button>
+              <div className="flex items-center gap-3 text-danger mb-2">
+                <Shield size={24} className="opacity-80" />
+                <h3 className="font-display text-xl font-bold">Delete Employee</h3>
+              </div>
+              <p className="text-slate-600 text-sm mt-3 mb-6">
+                Are you sure you want to delete <strong>{p.fullName}</strong> ({employee.loginId})? This will permanently remove their profile, attendance records, leaves, documents, and salary information. This action cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button variant="ghost" onClick={() => setConfirmDelete(false)} disabled={deleteEmployee.isPending}>Cancel</Button>
+                <button
+                  className="px-4 py-2 bg-danger hover:bg-danger-dark text-white text-sm font-bold rounded-lg shadow-sm disabled:opacity-50 transition-colors"
+                  onClick={() => deleteEmployee.mutate()}
+                  disabled={deleteEmployee.isPending}
+                >
+                  {deleteEmployee.isPending ? 'Deleting...' : 'Yes, Delete Employee'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
