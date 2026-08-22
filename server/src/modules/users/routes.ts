@@ -6,15 +6,17 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import { AttendanceStatus, LeaveStatus, Role } from '@prisma/client';
+import { LeaveStatus, OtpPurpose, Role } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
-import { requireAuth, requireRole } from '../../middleware/auth';
+import { requireAuth, requireOnboarded, requireRole } from '../../middleware/auth';
 import { upload } from '../../lib/upload';
 import { generateLoginId } from '../../lib/loginid';
-import { sendCredentials } from '../../lib/mailer';
+import { sendEmployeeInvite } from '../../lib/mailer';
+import { generateInviteToken, inviteExpiry, issueOtp } from '../../lib/otp';
 
 const router = Router();
+router.use(requireAuth, requireOnboarded);
 const optionalText = z.string().trim().max(500).optional().nullable();
 const today = () => new Date(new Date().toISOString().slice(0, 10));
 
@@ -38,7 +40,7 @@ async function getTodayStatus(userId: string): Promise<string> {
 }
 
 // ── GET /users — Employees grid (Auth) ───────────────────────────────────────
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', async (req, res) => {
   const q = String(req.query.search || '');
   const page = Math.max(1, Number(req.query.page) || 1);
   const take = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
@@ -93,7 +95,7 @@ const createEmployeeSchema = z.object({
   location: optionalText,
 });
 
-router.post('/', requireAuth, requireRole(Role.ADMIN), async (req, res, next) => {
+router.post('/', requireRole(Role.ADMIN), async (req, res, next) => {
   try {
     const body = createEmployeeSchema.parse(req.body);
 
@@ -111,6 +113,7 @@ router.post('/', requireAuth, requireRole(Role.ADMIN), async (req, res, next) =>
 
     // Generate a temporary password (8 chars with required number + symbol)
     const tempPassword = `Df@${crypto.randomBytes(3).toString('hex')}1!`;
+    const inviteToken = generateInviteToken();
 
     const user = await prisma.user.create({
       data: {
@@ -122,6 +125,9 @@ router.post('/', requireAuth, requireRole(Role.ADMIN), async (req, res, next) =>
         role: Role.EMPLOYEE,
         isEmailVerified: true, // Admin-created employees are pre-verified
         mustChangePassword: true,
+        isOtpVerified: false,
+        inviteToken,
+        inviteExpiresAt: inviteExpiry(),
         profile: {
           create: {
             fullName: body.fullName,
@@ -145,21 +151,21 @@ router.post('/', requireAuth, requireRole(Role.ADMIN), async (req, res, next) =>
       ],
     });
 
-    // Email credentials via MailHog
-    await sendCredentials(body.email, loginId, tempPassword);
+    const otp = await issueOtp(user.id, OtpPurpose.INVITE);
+    await sendEmployeeInvite({ to: body.email, loginId, tempPassword, otp, inviteToken });
 
     res.status(201).json({
       id: user.id,
       loginId,
       email: user.email,
       fullName: user.profile?.fullName,
-      message: 'Employee created. Credentials sent via email.',
+      message: 'Employee created. Invite email sent with login link, credentials, and OTP.',
     });
   } catch (e) { next(e); }
 });
 
 // ── GET /users/me — Own full profile ─────────────────────────────────────────
-router.get('/me', requireAuth, async (req, res) => {
+router.get('/me', async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user!.id },
     include: {
@@ -191,7 +197,7 @@ router.get('/me', requireAuth, async (req, res) => {
 });
 
 // ── PATCH /users/me — Edit own employee-editable fields (§4.3) ──────────────
-router.patch('/me', requireAuth, upload.single('profilePicture'), async (req, res, next) => {
+router.patch('/me', upload.single('profilePicture'), async (req, res, next) => {
   try {
     const body = z.object({
       phone: z.string().regex(/^[0-9+() -]{7,20}$/).optional(),
@@ -229,7 +235,7 @@ router.patch('/me', requireAuth, upload.single('profilePicture'), async (req, re
 });
 
 // ── GET /users/:id — Any employee's profile ─────────────────────────────────
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', async (req, res) => {
   const isAdmin = req.user!.role === Role.ADMIN;
   const user = await prisma.user.findUnique({
     where: { id: String(req.params.id) },
@@ -269,7 +275,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // ── PATCH /users/:id — Admin edit any field (§4.3) ──────────────────────────
-router.patch('/:id', requireAuth, requireRole(Role.ADMIN), async (req, res, next) => {
+router.patch('/:id', requireRole(Role.ADMIN), async (req, res, next) => {
   try {
     const body = z.object({
       fullName: z.string().min(2).max(120).optional(),
@@ -289,7 +295,7 @@ router.patch('/:id', requireAuth, requireRole(Role.ADMIN), async (req, res, next
 });
 
 // ── POST /users/:id/documents ────────────────────────────────────────────────
-router.post('/:id/documents', requireAuth, upload.single('file'), async (req, res, next) => {
+router.post('/:id/documents', upload.single('file'), async (req, res, next) => {
   try {
     const id = String(req.params.id);
     if (req.user!.role !== Role.ADMIN && req.user!.id !== id) {
@@ -309,7 +315,7 @@ router.post('/:id/documents', requireAuth, upload.single('file'), async (req, re
 });
 
 // ── POST/DELETE /users/:id/skills ────────────────────────────────────────────
-router.post('/:id/skills', requireAuth, async (req, res, next) => {
+router.post('/:id/skills', async (req, res, next) => {
   try {
     const id = String(req.params.id);
     if (req.user!.role !== Role.ADMIN && req.user!.id !== id) {
@@ -321,7 +327,7 @@ router.post('/:id/skills', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.delete('/:id/skills/:skillId', requireAuth, async (req, res, next) => {
+router.delete('/:id/skills/:skillId', async (req, res, next) => {
   try {
     const id = String(req.params.id);
     if (req.user!.role !== Role.ADMIN && req.user!.id !== id) {
@@ -333,7 +339,7 @@ router.delete('/:id/skills/:skillId', requireAuth, async (req, res, next) => {
 });
 
 // ── POST/DELETE /users/:id/certifications ────────────────────────────────────
-router.post('/:id/certifications', requireAuth, async (req, res, next) => {
+router.post('/:id/certifications', async (req, res, next) => {
   try {
     const id = String(req.params.id);
     if (req.user!.role !== Role.ADMIN && req.user!.id !== id) {
@@ -345,7 +351,7 @@ router.post('/:id/certifications', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.delete('/:id/certifications/:certId', requireAuth, async (req, res, next) => {
+router.delete('/:id/certifications/:certId', async (req, res, next) => {
   try {
     const id = String(req.params.id);
     if (req.user!.role !== Role.ADMIN && req.user!.id !== id) {

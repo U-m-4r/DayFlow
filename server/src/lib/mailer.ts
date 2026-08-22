@@ -22,16 +22,38 @@ export async function sendVerification(to: string, token: string) {
   });
 }
 
-/** Send auto-generated credentials when Admin creates a new employee. */
-export async function sendCredentials(to: string, loginId: string, tempPassword: string) {
+/** Invite an Admin-created employee: login link, temp credentials, and OTP. */
+export async function sendEmployeeInvite(opts: {
+  to: string;
+  loginId: string;
+  tempPassword: string;
+  otp: string;
+  inviteToken: string;
+}) {
+  const activateLink = `${clientUrl()}/activate?token=${opts.inviteToken}`;
+  const signInLink = `${clientUrl()}/`;
+  await getTransport().sendMail({
+    from: 'Dayflow <no-reply@dayflow.local>',
+    to: opts.to,
+    subject: 'Activate your Dayflow account',
+    html: `<h2>Welcome to Dayflow</h2>
+<p>Your HR team created an account for you. Activate it with the details below.</p>
+<p><a href="${activateLink}">Activate your account</a></p>
+<p>Or <a href="${signInLink}">sign in</a> with these temporary credentials:</p>
+<p><strong>Login ID:</strong> ${opts.loginId}</p>
+<p><strong>Temporary Password:</strong> ${opts.tempPassword}</p>
+<p><strong>One-time verification code:</strong> ${opts.otp}</p>
+<p>The code expires in 15 minutes. You must verify it and set a new password before using Dayflow.</p>`,
+  });
+}
+
+/** Resend a fresh invite OTP (same login link; credentials unchanged). */
+export async function sendInviteOtp(to: string, otp: string) {
   await getTransport().sendMail({
     from: 'Dayflow <no-reply@dayflow.local>',
     to,
-    subject: 'Your Dayflow login credentials',
-    html: `<h2>Welcome to Dayflow</h2>
-<p>Your account has been created. Use the credentials below to sign in:</p>
-<p><strong>Login ID:</strong> ${loginId}</p>
-<p><strong>Temporary Password:</strong> ${tempPassword}</p>
-<p>You will be asked to change your password on first login.</p>`,
+    subject: 'Your Dayflow verification code',
+    html: `<p>Your Dayflow verification code is <strong>${otp}</strong>.</p>
+<p>It expires in 15 minutes.</p>`,
   });
 }

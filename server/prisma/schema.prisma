@@ -72,6 +72,11 @@ enum NotificationType {
   GENERAL
 }
 
+enum OtpPurpose {
+  INVITE
+  PASSWORD_RESET
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // §4.1  Company
 // ────────────────────────────────────────────────────────────────────────────
@@ -99,8 +104,13 @@ model User {
   role                  Role     @default(EMPLOYEE)
   isEmailVerified       Boolean  @default(false)
   mustChangePassword    Boolean  @default(false)
+  /// False for Admin-created employees until they complete invite OTP verification.
+  /// Defaults true so company admins and seeded accounts are not blocked.
+  isOtpVerified         Boolean  @default(true)
   verificationToken     String?  @unique
   verificationExpiresAt DateTime?
+  inviteToken           String?  @unique
+  inviteExpiresAt       DateTime?
   refreshToken          String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -119,6 +129,7 @@ model User {
   pfContributions    PfContribution[]
   taxDeductions      TaxDeduction[]
   notifications      Notification[]
+  otps               Otp[]
   managedProfiles    EmployeeProfile[]  @relation("Manager")
 
   @@index([companyId])
@@ -325,6 +336,23 @@ model TaxDeduction {
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Invite / password-reset OTPs (Features list — extends §4.2 / §7.1)
+// ────────────────────────────────────────────────────────────────────────────
+
+model Otp {
+  id         String     @id @default(uuid())
+  userId     String
+  purpose    OtpPurpose
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

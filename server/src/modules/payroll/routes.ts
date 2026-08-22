@@ -8,12 +8,13 @@ import { Router } from 'express';
 import { BasisOf, ComponentName, ComputationType, PfPayer, Role } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
-import { requireAuth, requireRole } from '../../middleware/auth';
+import { requireAuth, requireOnboarded, requireRole } from '../../middleware/auth';
 
 const router = Router();
+router.use(requireAuth, requireOnboarded, requireRole(Role.ADMIN));
 
 // ── GET /payroll/:userId — Full salary object ───────────────────────────────
-router.get('/:userId', requireAuth, requireRole(Role.ADMIN), async (req, res) => {
+router.get('/:userId', async (req, res) => {
   const userId = String(req.params.userId);
   const wage = await prisma.salaryWage.findUnique({ where: { userId } });
   const components = await prisma.salaryComponent.findMany({ where: { userId }, orderBy: { name: 'asc' } });
@@ -24,7 +25,7 @@ router.get('/:userId', requireAuth, requireRole(Role.ADMIN), async (req, res) =>
 });
 
 // ── PUT /payroll/:userId/wage — Set month wage / working days / break time ──
-router.put('/:userId/wage', requireAuth, requireRole(Role.ADMIN), async (req, res, next) => {
+router.put('/:userId/wage', async (req, res, next) => {
   try {
     const body = z.object({
       monthWage: z.coerce.number().positive(),
@@ -122,7 +123,7 @@ const componentSchema = z.object({
   description: z.string().max(500).optional().nullable(),
 });
 
-router.put('/:userId/components', requireAuth, requireRole(Role.ADMIN), async (req, res, next) => {
+router.put('/:userId/components', async (req, res, next) => {
   try {
     const body = z.array(componentSchema).parse(req.body);
     const userId = String(req.params.userId);
@@ -189,7 +190,7 @@ router.put('/:userId/components', requireAuth, requireRole(Role.ADMIN), async (r
 });
 
 // ── PUT /payroll/:userId/pf — Set PF contribution rates ─────────────────────
-router.put('/:userId/pf', requireAuth, requireRole(Role.ADMIN), async (req, res, next) => {
+router.put('/:userId/pf', async (req, res, next) => {
   try {
     const body = z.array(z.object({
       payer: z.nativeEnum(PfPayer),
@@ -220,7 +221,7 @@ router.put('/:userId/pf', requireAuth, requireRole(Role.ADMIN), async (req, res,
 });
 
 // ── PUT /payroll/:userId/tax — Set tax deductions ───────────────────────────
-router.put('/:userId/tax', requireAuth, requireRole(Role.ADMIN), async (req, res, next) => {
+router.put('/:userId/tax', async (req, res, next) => {
   try {
     const body = z.array(z.object({
       name: z.string().trim().min(1).max(100),

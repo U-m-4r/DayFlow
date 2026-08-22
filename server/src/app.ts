@@ -43,12 +43,12 @@ app.use('/api/v1/leave', leaveRoutes);
 app.use('/api/v1/payroll', payrollRoutes);
 
 // Notifications (minimal — Phase 2)
-import { requireAuth } from './middleware/auth';
+import { requireAuth, requireOnboarded } from './middleware/auth';
 import { prisma } from './lib/prisma';
-app.get('/api/v1/notifications', requireAuth, async (req, res) =>
+app.get('/api/v1/notifications', requireAuth, requireOnboarded, async (req, res) =>
   res.json(await prisma.notification.findMany({ where: { userId: req.user!.id }, orderBy: { createdAt: 'desc' } }))
 );
-app.patch('/api/v1/notifications/:id/read', requireAuth, async (req, res) =>
+app.patch('/api/v1/notifications/:id/read', requireAuth, requireOnboarded, async (req, res) =>
   res.json(await prisma.notification.updateMany({ where: { id: String(req.params.id), userId: req.user!.id }, data: { isRead: true } }))
 );
 

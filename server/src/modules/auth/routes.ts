@@ -6,22 +6,18 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import { Role } from '@prisma/client';
+import { OtpPurpose, Role } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
-import { sendVerification } from '../../lib/mailer';
+import { sendInviteOtp, sendVerification } from '../../lib/mailer';
 import { signAccess, signRefresh, verifyRefresh } from '../../lib/tokens';
 import { requireAuth } from '../../middleware/auth';
 import { upload } from '../../lib/upload';
 import { generateLoginId } from '../../lib/loginid';
+import { passwordSchema } from '../../lib/password';
+import { consumeOtp, issueOtp } from '../../lib/otp';
 
 const router = Router();
-
-const passwordSchema = z
-  .string()
-  .min(8, 'Password must be at least 8 characters')
-  .regex(/\d/, 'Password needs at least one number')
-  .regex(/[^A-Za-z0-9]/, 'Password needs at least one symbol');
 
 function makeTokens(user: { id: string; role: Role; email: string }) {
   return { accessToken: signAccess(user), refreshToken: signRefresh(user) };
@@ -155,6 +151,7 @@ router.post('/signin', async (req, res, next) => {
         loginId: user.loginId,
         role: user.role,
         mustChangePassword: user.mustChangePassword,
+        isOtpVerified: user.isOtpVerified,
         fullName: user.profile?.fullName,
         companyName: user.company.name,
         companyLogo: user.company.logoUrl,
@@ -220,6 +217,38 @@ router.patch('/change-password', requireAuth, async (req, res, next) => {
     });
 
     res.json({ message: 'Password changed successfully' });
+  } catch (e) { next(e); }
+});
+
+// ── POST /auth/otp/verify — first-login invite OTP (extends §7.1) ────────────
+router.post('/otp/verify', requireAuth, async (req, res, next) => {
+  try {
+    const code = z.string().regex(/^\d{6}$/, 'Enter the 6-digit code from your invite email').parse(req.body.code);
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.isOtpVerified) return res.json({ message: 'OTP already verified', isOtpVerified: true });
+
+    const ok = await consumeOtp(user.id, OtpPurpose.INVITE, code);
+    if (!ok) return res.status(400).json({ message: 'Invalid or expired verification code' });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { isOtpVerified: true, inviteToken: null, inviteExpiresAt: null },
+    });
+    res.json({ message: 'Verification successful', isOtpVerified: true });
+  } catch (e) { next(e); }
+});
+
+// ── POST /auth/otp/resend ────────────────────────────────────────────────────
+router.post('/otp/resend', requireAuth, async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.isOtpVerified) return res.status(400).json({ message: 'OTP verification is already complete' });
+
+    const otp = await issueOtp(user.id, OtpPurpose.INVITE);
+    await sendInviteOtp(user.email, otp);
+    res.json({ message: 'A new verification code was sent to your email' });
   } catch (e) { next(e); }
 });
 

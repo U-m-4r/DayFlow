@@ -7,10 +7,11 @@ import { Router } from 'express';
 import { LeaveStatus, LeaveType, NotificationType, Role } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
-import { requireAuth, requireRole } from '../../middleware/auth';
+import { requireAuth, requireOnboarded, requireRole } from '../../middleware/auth';
 import { upload } from '../../lib/upload';
 
 const router = Router();
+router.use(requireAuth, requireOnboarded);
 
 // Helper: count business days between two dates (inclusive)
 function countDays(start: Date, end: Date): number {
@@ -25,7 +26,7 @@ function countDays(start: Date, end: Date): number {
 }
 
 // ── GET /leave/allocations/me — Own balances ────────────────────────────────
-router.get('/allocations/me', requireAuth, async (req, res) => {
+router.get('/allocations/me', async (req, res) => {
   const year = Number(req.query.year) || new Date().getFullYear();
   const allocations = await prisma.leaveAllocation.findMany({
     where: { userId: req.user!.id, year },
@@ -34,7 +35,7 @@ router.get('/allocations/me', requireAuth, async (req, res) => {
 });
 
 // ── GET /leave/allocations/:userId — Admin: one employee's balances ─────────
-router.get('/allocations/:userId', requireAuth, requireRole(Role.ADMIN), async (req, res) => {
+router.get('/allocations/:userId', requireRole(Role.ADMIN), async (req, res) => {
   const year = Number(req.query.year) || new Date().getFullYear();
   const allocations = await prisma.leaveAllocation.findMany({
     where: { userId: String(req.params.userId), year },
@@ -43,7 +44,7 @@ router.get('/allocations/:userId', requireAuth, requireRole(Role.ADMIN), async (
 });
 
 // ── PUT /leave/allocations/:userId — Admin: set allocation ──────────────────
-router.put('/allocations/:userId', requireAuth, requireRole(Role.ADMIN), async (req, res, next) => {
+router.put('/allocations/:userId', requireRole(Role.ADMIN), async (req, res, next) => {
   try {
     const body = z.object({
       leaveType: z.nativeEnum(LeaveType),
@@ -64,7 +65,7 @@ router.put('/allocations/:userId', requireAuth, requireRole(Role.ADMIN), async (
 });
 
 // ── POST /leave — Apply for leave (§7.5) ────────────────────────────────────
-router.post('/', requireAuth, upload.single('attachment'), async (req, res, next) => {
+router.post('/', upload.single('attachment'), async (req, res, next) => {
   try {
     const body = z.object({
       leaveType: z.nativeEnum(LeaveType),
@@ -126,7 +127,7 @@ router.post('/', requireAuth, upload.single('attachment'), async (req, res, next
 });
 
 // ── GET /leave/me — Own leave history ────────────────────────────────────────
-router.get('/me', requireAuth, async (req, res) => {
+router.get('/me', async (req, res) => {
   const leaves = await prisma.leaveRequest.findMany({
     where: { userId: req.user!.id },
     orderBy: { createdAt: 'desc' },
@@ -135,7 +136,7 @@ router.get('/me', requireAuth, async (req, res) => {
 });
 
 // ── GET /leave — Admin: all requests ─────────────────────────────────────────
-router.get('/', requireAuth, requireRole(Role.ADMIN), async (req, res) => {
+router.get('/', requireRole(Role.ADMIN), async (req, res) => {
   const status = req.query.status as LeaveStatus | undefined;
   const where: any = {};
   if (status) where.status = status;
@@ -149,7 +150,7 @@ router.get('/', requireAuth, requireRole(Role.ADMIN), async (req, res) => {
 });
 
 // ── PATCH /leave/:id/decision — Approve/reject ──────────────────────────────
-router.patch('/:id/decision', requireAuth, requireRole(Role.ADMIN), async (req, res, next) => {
+router.patch('/:id/decision', requireRole(Role.ADMIN), async (req, res, next) => {
   try {
     const body = z.object({
       status: z.enum([LeaveStatus.APPROVED, LeaveStatus.REJECTED]),

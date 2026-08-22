@@ -7,9 +7,10 @@ import { Router } from 'express';
 import { AttendanceStatus, Role } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
-import { requireAuth, requireRole } from '../../middleware/auth';
+import { requireAuth, requireOnboarded, requireRole } from '../../middleware/auth';
 
 const router = Router();
+router.use(requireAuth, requireOnboarded);
 const today = () => new Date(new Date().toISOString().slice(0, 10));
 
 // Helper: compute work and extra hours from check-in/out
@@ -32,7 +33,7 @@ async function computeHours(userId: string, checkIn: Date, checkOut: Date) {
 }
 
 // ── POST /attendance/check-in ────────────────────────────────────────────────
-router.post('/check-in', requireAuth, async (req, res) => {
+router.post('/check-in', async (req, res) => {
   const rec = await prisma.attendance.findUnique({
     where: { userId_date: { userId: req.user!.id, date: today() } },
   });
@@ -46,7 +47,7 @@ router.post('/check-in', requireAuth, async (req, res) => {
 });
 
 // ── POST /attendance/check-out ───────────────────────────────────────────────
-router.post('/check-out', requireAuth, async (req, res) => {
+router.post('/check-out', async (req, res) => {
   const rec = await prisma.attendance.findUnique({
     where: { userId_date: { userId: req.user!.id, date: today() } },
   });
@@ -65,7 +66,7 @@ router.post('/check-out', requireAuth, async (req, res) => {
 });
 
 // ── GET /attendance/me?month= — Own monthly attendance ──────────────────────
-router.get('/me', requireAuth, async (req, res) => {
+router.get('/me', async (req, res) => {
   const monthStr = String(req.query.month || '');
   const now = new Date();
   let year = now.getFullYear();
@@ -101,7 +102,7 @@ router.get('/me', requireAuth, async (req, res) => {
 });
 
 // ── GET /attendance/:userId?month= — Admin: any employee ────────────────────
-router.get('/:userId', requireAuth, requireRole(Role.ADMIN), async (req, res) => {
+router.get('/:userId', requireRole(Role.ADMIN), async (req, res) => {
   const userId = String(req.params.userId);
   const monthStr = String(req.query.month || '');
   const now = new Date();
@@ -132,7 +133,7 @@ router.get('/:userId', requireAuth, requireRole(Role.ADMIN), async (req, res) =>
 });
 
 // ── GET /attendance?date= — Admin: all employees for a day ──────────────────
-router.get('/', requireAuth, requireRole(Role.ADMIN), async (req, res) => {
+router.get('/', requireRole(Role.ADMIN), async (req, res) => {
   const d = req.query.date ? new Date(String(req.query.date)) : today();
   const records = await prisma.attendance.findMany({
     where: { date: d },
@@ -142,7 +143,7 @@ router.get('/', requireAuth, requireRole(Role.ADMIN), async (req, res) => {
 });
 
 // ── PATCH /attendance/:id — Admin override ──────────────────────────────────
-router.patch('/:id', requireAuth, requireRole(Role.ADMIN), async (req, res, next) => {
+router.patch('/:id', requireRole(Role.ADMIN), async (req, res, next) => {
   try {
     const b = z.object({
       status: z.nativeEnum(AttendanceStatus),

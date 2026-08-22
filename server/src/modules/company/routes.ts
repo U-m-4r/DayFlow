@@ -7,13 +7,14 @@ import { Router } from 'express';
 import { Role } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma';
-import { requireAuth, requireRole } from '../../middleware/auth';
+import { requireAuth, requireOnboarded, requireRole } from '../../middleware/auth';
 import { upload } from '../../lib/upload';
 
 const router = Router();
+router.use(requireAuth, requireOnboarded);
 
 // ── GET /company ─────────────────────────────────────────────────────────────
-router.get('/', requireAuth, async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
@@ -25,7 +26,7 @@ router.get('/', requireAuth, async (req, res, next) => {
 });
 
 // ── PATCH /company ───────────────────────────────────────────────────────────
-router.patch('/', requireAuth, requireRole(Role.ADMIN), upload.single('logo'), async (req, res, next) => {
+router.patch('/', requireRole(Role.ADMIN), upload.single('logo'), async (req, res, next) => {
   try {
     const body = z.object({
       name: z.string().trim().min(2).max(120).optional(),
