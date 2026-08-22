@@ -1,131 +1,344 @@
-// Dayflow's relational HR model. Relations and uniqueness constraints protect core data integrity.
+// Dayflow's relational HR model — §4 of the build plan.
+// Every entity, field, and constraint maps 1:1 to the approved data-model spec.
+
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Enums
+// ────────────────────────────────────────────────────────────────────────────
 
 enum Role {
   ADMIN
   EMPLOYEE
 }
+
 enum AttendanceStatus {
   PRESENT
   ABSENT
   HALFDAY
   LEAVE
 }
+
 enum LeaveType {
   PAID
   SICK
   UNPAID
 }
+
 enum LeaveStatus {
   PENDING
   APPROVED
   REJECTED
 }
+
+enum WageType {
+  FIXED
+}
+
+enum ComponentName {
+  BASIC
+  HRA
+  STANDARD_ALLOWANCE
+  PERFORMANCE_BONUS
+  LTA
+  FIXED_ALLOWANCE
+}
+
+enum ComputationType {
+  PERCENTAGE
+  FIXED
+}
+
+enum BasisOf {
+  WAGE
+  BASIC
+}
+
+enum PfPayer {
+  EMPLOYEE
+  EMPLOYER
+}
+
 enum NotificationType {
   LEAVEUPDATE
   ATTENDANCEALERT
   GENERAL
 }
 
-model User {
-  id String @id @default(uuid())
-  employeeId String @unique
-  email String @unique
-  passwordHash String
-  role Role @default(EMPLOYEE)
-  isEmailVerified Boolean @default(false)
-  verificationToken String? @unique
-  verificationExpiresAt DateTime?
-  refreshToken String?
+// ────────────────────────────────────────────────────────────────────────────
+// §4.1  Company
+// ────────────────────────────────────────────────────────────────────────────
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  logoUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  profile EmployeeProfile?
-  documents Document[]
-  attendance Attendance[]
-  leaveRequests LeaveRequest[] @relation("Requester")
-  reviewedLeaves LeaveRequest[] @relation("Reviewer")
-  salaries SalaryStructure[] @relation("SalaryOwner")
-  salaryUpdates SalaryStructure[] @relation("SalaryUpdater")
-  notifications Notification[]
-  managerOf EmployeeProfile[] @relation("Manager")
+  users     User[]
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.2  User
+// ────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id                    String   @id @default(uuid())
+  companyId             String
+  loginId               String   @unique
+  email                 String   @unique
+  phone                 String?
+  passwordHash          String
+  role                  Role     @default(EMPLOYEE)
+  isEmailVerified       Boolean  @default(false)
+  mustChangePassword    Boolean  @default(false)
+  verificationToken     String?  @unique
+  verificationExpiresAt DateTime?
+  refreshToken          String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  company            Company            @relation(fields: [companyId], references: [id])
+  profile            EmployeeProfile?
+  skills             Skill[]
+  certifications     Certification[]
+  documents          Document[]
+  attendance         Attendance[]
+  leaveAllocations   LeaveAllocation[]
+  leaveRequests      LeaveRequest[]     @relation("Requester")
+  reviewedLeaves     LeaveRequest[]     @relation("Reviewer")
+  salaryWage         SalaryWage?
+  salaryComponents   SalaryComponent[]
+  pfContributions    PfContribution[]
+  taxDeductions      TaxDeduction[]
+  notifications      Notification[]
+  managedProfiles    EmployeeProfile[]  @relation("Manager")
+
+  @@index([companyId])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.3  Employee Profile
+// ────────────────────────────────────────────────────────────────────────────
+
 model EmployeeProfile {
-  id String @id @default(uuid())
-  userId String @unique
-  fullName String
-  phone String?
-  address String?
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  fullName          String
+  designation       String?
+  department        String?
+  managerId         String?
+  location          String?
+  dateOfJoining     DateTime? @db.Date
   profilePictureUrl String?
-  department String?
-  designation String?
-  dateOfJoining DateTime?
-  managerId String?
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personalEmail     String?
+  residingAddress   String?
+  dateOfBirth       DateTime? @db.Date
+  nationality       String?
+  gender            String?
+  maritalStatus     String?
+  bankAccountNumber String?
+  bankName          String?
+  ifscCode          String?
+  panNo             String?
+  uanNo             String?
+  aboutMe           String?
+  whatILoveMyJob    String?
+  interestsHobbies  String?
+
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   manager User? @relation("Manager", fields: [managerId], references: [id])
 }
-model Document {
-  id String @id @default(uuid())
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.4  Skills
+// ────────────────────────────────────────────────────────────────────────────
+
+model Skill {
+  id     String @id @default(uuid())
   userId String
-  docType String
-  fileUrl String
-  uploadedAt DateTime @default(now())
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  name   String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
-model Attendance {
-  id String @id @default(uuid())
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.5  Certifications
+// ────────────────────────────────────────────────────────────────────────────
+
+model Certification {
+  id     String @id @default(uuid())
   userId String
-  date DateTime @db.Date
-  checkIn DateTime?
-  checkOut DateTime?
-  status AttendanceStatus @default(PRESENT)
-  note String?
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
-  @@unique([userId,date])
-  @@index([userId,date])
+  name   String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
-model LeaveRequest {
-  id String @id @default(uuid())
-  userId String
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.6  Documents
+// ────────────────────────────────────────────────────────────────────────────
+
+model Document {
+  id         String   @id @default(uuid())
+  userId     String
+  docType    String
+  fileUrl    String
+  uploadedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.7  Attendance
+// ────────────────────────────────────────────────────────────────────────────
+
+model Attendance {
+  id         String           @id @default(uuid())
+  userId     String
+  date       DateTime         @db.Date
+  checkIn    DateTime?
+  checkOut   DateTime?
+  workHours  Decimal?         @db.Decimal(5, 2)
+  extraHours Decimal?         @db.Decimal(5, 2)
+  status     AttendanceStatus @default(PRESENT)
+  note       String?
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.8  Leave Allocations
+// ────────────────────────────────────────────────────────────────────────────
+
+model LeaveAllocation {
+  id        String    @id @default(uuid())
+  userId    String
   leaveType LeaveType
-  startDate DateTime @db.Date
-  endDate DateTime @db.Date
-  remarks String?
-  status LeaveStatus @default(PENDING)
-  reviewerId String?
+  year      Int
+  totalDays Decimal   @db.Decimal(5, 1)
+  usedDays  Decimal   @default(0) @db.Decimal(5, 1)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, leaveType, year])
+  @@index([userId, year])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.9  Leave Requests
+// ────────────────────────────────────────────────────────────────────────────
+
+model LeaveRequest {
+  id              String      @id @default(uuid())
+  userId          String
+  leaveType       LeaveType
+  startDate       DateTime    @db.Date
+  endDate         DateTime    @db.Date
+  days            Decimal     @db.Decimal(5, 1)
+  remarks         String?
+  attachmentUrl   String?
+  status          LeaveStatus @default(PENDING)
+  reviewerId      String?
   reviewerComment String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user User @relation("Requester", fields:[userId], references:[id], onDelete:Cascade)
-  reviewer User? @relation("Reviewer", fields:[reviewerId], references:[id])
-  @@index([userId,startDate,endDate])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  user            User        @relation("Requester", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer        User?       @relation("Reviewer", fields: [reviewerId], references: [id])
+
+  @@index([userId, startDate, endDate])
   @@index([status])
 }
-model SalaryStructure {
-  id String @id @default(uuid())
-  userId String
-  baseSalary Decimal @db.Decimal(12,2)
-  allowances Decimal @db.Decimal(12,2)
-  deductions Decimal @db.Decimal(12,2)
-  effectiveFrom DateTime @db.Date
-  updatedBy String
-  user User @relation("SalaryOwner", fields:[userId], references:[id], onDelete:Cascade)
-  updater User @relation("SalaryUpdater", fields:[updatedBy], references:[id])
-  @@index([userId,effectiveFrom])
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.10  Salary / Wages
+// ────────────────────────────────────────────────────────────────────────────
+
+model SalaryWage {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  wageType           WageType @default(FIXED)
+  monthWage          Decimal  @db.Decimal(12, 2)
+  yearlyWage         Decimal  @db.Decimal(14, 2)
+  workingDaysPerWeek Int      @default(5)
+  breakTimeMinutes   Int      @default(60)
+  effectiveFrom      DateTime @db.Date
+  updatedBy          String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
-model Notification {
-  id String @id @default(uuid())
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.11  Salary Components
+// ────────────────────────────────────────────────────────────────────────────
+
+model SalaryComponent {
+  id              String          @id @default(uuid())
+  userId          String
+  name            ComponentName
+  computationType ComputationType
+  basisOf         BasisOf         @default(WAGE)
+  value           Decimal         @db.Decimal(10, 4)
+  computedAmount  Decimal         @db.Decimal(12, 2)
+  description     String?
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.12  PF Contributions
+// ────────────────────────────────────────────────────────────────────────────
+
+model PfContribution {
+  id             String  @id @default(uuid())
+  userId         String
+  payer          PfPayer
+  ratePercent    Decimal @db.Decimal(5, 2)
+  computedAmount Decimal @db.Decimal(12, 2)
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, payer])
+  @@index([userId])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.13  Tax Deductions
+// ────────────────────────────────────────────────────────────────────────────
+
+model TaxDeduction {
+  id     String  @id @default(uuid())
   userId String
-  message String
-  type NotificationType
-  isRead Boolean @default(false)
-  createdAt DateTime @default(now())
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
-  @@index([userId,isRead])
+  name   String
+  amount Decimal @db.Decimal(12, 2)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// §4.14  Notifications (Phase 2 — schema ready, routes minimal)
+// ────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
 }

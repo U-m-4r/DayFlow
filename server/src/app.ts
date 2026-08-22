@@ -1,56 +1,59 @@
-/** Dayflow REST API: auth, profiles, attendance, leave, payroll and local uploads. */
+/**
+ * Dayflow REST API — modular Express app.
+ * All business logic lives in src/modules/; this file wires middleware and mounts routers.
+ */
 import 'dotenv/config';
-import crypto from 'crypto';
 import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
-import bcrypt from 'bcrypt';
-import multer from 'multer';
-import { AttendanceStatus, LeaveStatus, LeaveType, NotificationType, Role } from '@prisma/client';
-import { z } from 'zod';
-import { prisma } from './lib/prisma';
-import { sendVerification } from './lib/mailer';
-import { signAccess, signRefresh, verifyRefresh } from './lib/tokens';
-import { requireAuth, requireRole } from './middleware/auth';
-import { errors, notFound } from './middleware/errors';
+import { notFound, errors } from './middleware/errors';
 
-const app=express(); app.use(cors({origin:process.env.CLIENT_URL||'http://localhost:5173'})); app.use(express.json()); app.use('/uploads',express.static(path.join(process.cwd(),'uploads')));
-const authLimiter=rateLimit({windowMs:15*60*1000,max:30,standardHeaders:true,legacyHeaders:false});
-const password=z.string().min(8).regex(/\d/,'Password needs a number').regex(/[^A-Za-z0-9]/,'Password needs a symbol');
-const signup=z.object({employeeId:z.string().trim().min(2).max(40),email:z.string().email(),password,role:z.nativeEnum(Role)});
-const date=z.coerce.date(); const optionalText=z.string().trim().max(500).optional().nullable();
-const upload=multer({storage:multer.diskStorage({destination:'uploads/',filename:(_r,f,cb)=>cb(null,`${crypto.randomUUID()}${path.extname(f.originalname)}`)}),limits:{fileSize:5*1024*1024},fileFilter:(_r,f,cb)=>cb(null,['image/jpeg','image/png','application/pdf'].includes(f.mimetype))});
-const today=()=>new Date(new Date().toISOString().slice(0,10));
-const tokens=(user:{id:string;role:Role;email:string})=>({accessToken:signAccess(user),refreshToken:signRefresh(user)});
-const profileInclude={profile:true};
-app.get('/api/v1/health',(_q,r)=>r.json({status:'ok'}));
-app.post('/api/v1/auth/signup',authLimiter,async(req,res,next)=>{try{const body=signup.parse(req.body); const existing=await prisma.user.findFirst({where:{OR:[{email:body.email},{employeeId:body.employeeId}]}});if(existing)return res.status(409).json({message:existing.email===body.email?'Email is already registered':'Employee ID is already registered'});const token=crypto.randomBytes(32).toString('hex');const user=await prisma.user.create({data:{...body,passwordHash:await bcrypt.hash(body.password,12),verificationToken:token,verificationExpiresAt:new Date(Date.now()+86400000),profile:{create:{fullName:body.employeeId}}}});await sendVerification(user.email,token);res.status(201).json({message:'Account created. Check your email to verify it.'});}catch(e){next(e)}});
-app.get('/api/v1/auth/verify-email',async(req,res,next)=>{try{const token=z.string().min(1).parse(req.query.token);const user=await prisma.user.findFirst({where:{verificationToken:token,verificationExpiresAt:{gt:new Date()}}});if(!user)return res.status(400).json({message:'Verification link is invalid or expired'});await prisma.user.update({where:{id:user.id},data:{isEmailVerified:true,verificationToken:null,verificationExpiresAt:null}});res.json({message:'Email verified. You can now sign in.'});}catch(e){next(e)}});
-app.post('/api/v1/auth/signin',authLimiter,async(req,res,next)=>{try{const body=z.object({email:z.string().email(),password:z.string().min(1)}).parse(req.body);const user=await prisma.user.findUnique({where:{email:body.email}});if(!user||!(await bcrypt.compare(body.password,user.passwordHash)))return res.status(401).json({message:'Incorrect email or password'});if(!user.isEmailVerified)return res.status(403).json({message:'Please verify your email before signing in'});const t=tokens(user);await prisma.user.update({where:{id:user.id},data:{refreshToken:t.refreshToken}});res.json({...t,user:{id:user.id,email:user.email,employeeId:user.employeeId,role:user.role}});}catch(e){next(e)}});
-app.post('/api/v1/auth/refresh',async(req,res,next)=>{try{const rt=z.string().min(1).parse(req.body.refreshToken);const decoded=verifyRefresh(rt);const user=await prisma.user.findUnique({where:{id:decoded.id}});if(!user||user.refreshToken!==rt)return res.status(401).json({message:'Refresh token is invalid'});const t=tokens(user);await prisma.user.update({where:{id:user.id},data:{refreshToken:t.refreshToken}});res.json(t);}catch(e){next(e)}});
-app.post('/api/v1/auth/logout',requireAuth,async(req,res)=>{await prisma.user.update({where:{id:req.user!.id},data:{refreshToken:null}});res.status(204).end();});
-app.get('/api/v1/users/me',requireAuth,async(req,res)=>res.json(await prisma.user.findUnique({where:{id:req.user!.id},include:{profile:true,documents:true,salaries:{orderBy:{effectiveFrom:'desc'},take:1}}})));
-app.patch('/api/v1/users/me',requireAuth,upload.single('profilePicture'),async(req,res,next)=>{try{const body=z.object({phone:z.string().regex(/^[0-9+() -]{7,20}$/).optional(),address:z.string().max(500).optional()}).parse(req.body);const profilePictureUrl=req.file?`/uploads/${req.file.filename}`:undefined;res.json(await prisma.employeeProfile.update({where:{userId:req.user!.id},data:{...body,...(profilePictureUrl?{profilePictureUrl}:{})}}));}catch(e){next(e)}});
-app.get('/api/v1/users',requireAuth,requireRole(Role.ADMIN),async(req,res)=>{const q=String(req.query.search||'');const page=Math.max(1,Number(req.query.page)||1);const take=Math.min(100,Math.max(1,Number(req.query.limit)||20));const where=q?{OR:[{email:{contains:q,mode:'insensitive' as const}},{employeeId:{contains:q,mode:'insensitive' as const}},{profile:{fullName:{contains:q,mode:'insensitive' as const}}}]}:{};const [items,total]=await prisma.$transaction([prisma.user.findMany({where,include:profileInclude,skip:(page-1)*take,take,orderBy:{createdAt:'desc'}}),prisma.user.count({where})]);res.json({items,total,page,limit:take});});
-app.get('/api/v1/users/:id',requireAuth,requireRole(Role.ADMIN),async(req,res)=>{const user=await prisma.user.findUnique({where:{id:String(req.params.id)},include:{profile:true,documents:true,salaries:{orderBy:{effectiveFrom:'desc'}}}});user?res.json(user):res.status(404).json({message:'Employee not found'});});
-app.patch('/api/v1/users/:id',requireAuth,requireRole(Role.ADMIN),async(req,res,next)=>{try{const body=z.object({fullName:z.string().min(2).max(120).optional(),phone:z.string().regex(/^[0-9+() -]{7,20}$/).optional(),address:z.string().max(500).optional(),department:optionalText,designation:optionalText,dateOfJoining:z.coerce.date().optional(),managerId:z.string().uuid().nullable().optional()}).parse(req.body);res.json(await prisma.employeeProfile.update({where:{userId:String(req.params.id)},data:body}));}catch(e){next(e)}});
-app.post('/api/v1/users/:id/documents',requireAuth,upload.single('file'),async(req,res,next)=>{try{const id=String(req.params.id);if(req.user!.role!==Role.ADMIN&&req.user!.id!==id)return res.status(403).json({message:'Insufficient permissions'});if(!req.file||req.file.mimetype!=='application/pdf')return res.status(400).json({message:'A PDF document is required'});const doc=await prisma.document.create({data:{userId:id,docType:z.string().min(2).max(80).parse(req.body.docType),fileUrl:`/uploads/${req.file.filename}`}});res.status(201).json(doc);}catch(e){next(e)}});
-app.post('/api/v1/attendance/check-in',requireAuth,requireRole(Role.EMPLOYEE),async(req,res)=>{const rec=await prisma.attendance.findUnique({where:{userId_date:{userId:req.user!.id,date:today()}}});if(rec)return res.status(409).json({message:'You have already checked in today'});res.status(201).json(await prisma.attendance.create({data:{userId:req.user!.id,date:today(),checkIn:new Date(),status:AttendanceStatus.PRESENT}}));});
-app.post('/api/v1/attendance/check-out',requireAuth,requireRole(Role.EMPLOYEE),async(req,res)=>{const rec=await prisma.attendance.findUnique({where:{userId_date:{userId:req.user!.id,date:today()}}});if(!rec?.checkIn)return res.status(400).json({message:'Check in before checking out'});if(rec.checkOut)return res.status(409).json({message:'You have already checked out today'});res.json(await prisma.attendance.update({where:{id:rec.id},data:{checkOut:new Date()}}));});
-const rangeWhere=(userId:string,range:string)=>{const days=range==='month'?30:7;const from=new Date();from.setDate(from.getDate()-days+1);return {userId,date:{gte:from}}};
-app.get('/api/v1/attendance/me',requireAuth,async(req,res)=>res.json(await prisma.attendance.findMany({where:rangeWhere(req.user!.id,String(req.query.range||'week')),orderBy:{date:'desc'}})));
-app.get('/api/v1/attendance/:userId',requireAuth,requireRole(Role.ADMIN),async(req,res)=>res.json(await prisma.attendance.findMany({where:rangeWhere(String(req.params.userId),String(req.query.range||'week')),orderBy:{date:'desc'}})));
-app.get('/api/v1/attendance',requireAuth,requireRole(Role.ADMIN),async(req,res)=>{const d=req.query.date?date.parse(req.query.date):today();res.json(await prisma.attendance.findMany({where:{date:d},include:{user:{include:{profile:true}}}}));});
-app.patch('/api/v1/attendance/:id',requireAuth,requireRole(Role.ADMIN),async(req,res,next)=>{try{const b=z.object({status:z.nativeEnum(AttendanceStatus),note:optionalText}).parse(req.body);res.json(await prisma.attendance.update({where:{id:String(req.params.id)},data:b}));}catch(e){next(e)}});
-app.post('/api/v1/leave',requireAuth,requireRole(Role.EMPLOYEE),async(req,res,next)=>{try{const b=z.object({leaveType:z.nativeEnum(LeaveType),startDate:date,endDate:date,remarks:z.string().max(500).optional()}).parse(req.body);if(b.endDate<b.startDate)return res.status(400).json({message:'End date cannot be before start date'});const overlap=await prisma.leaveRequest.findFirst({where:{userId:req.user!.id,status:{in:[LeaveStatus.PENDING,LeaveStatus.APPROVED]},startDate:{lte:b.endDate},endDate:{gte:b.startDate}}});if(overlap)return res.status(409).json({message:'This leave overlaps an existing request'});res.status(201).json(await prisma.leaveRequest.create({data:{...b,userId:req.user!.id}}));}catch(e){next(e)}});
-app.get('/api/v1/leave/me',requireAuth,async(req,res)=>res.json(await prisma.leaveRequest.findMany({where:{userId:req.user!.id},orderBy:{createdAt:'desc'}})));
-app.get('/api/v1/leave',requireAuth,requireRole(Role.ADMIN),async(req,res)=>{const status=req.query.status as LeaveStatus|undefined;res.json(await prisma.leaveRequest.findMany({where:status?{status}:{},include:{user:{include:{profile:true}}},orderBy:{createdAt:'desc'}}));});
-app.patch('/api/v1/leave/:id/decision',requireAuth,requireRole(Role.ADMIN),async(req,res,next)=>{try{const b=z.object({status:z.enum([LeaveStatus.APPROVED,LeaveStatus.REJECTED]),comment:z.string().max(500).optional()}).parse(req.body);if(b.status===LeaveStatus.REJECTED&&!b.comment?.trim())return res.status(400).json({message:'A comment is required when rejecting leave'});const leave=await prisma.leaveRequest.findUnique({where:{id:String(req.params.id)}});if(!leave)return res.status(404).json({message:'Leave request not found'});if(leave.status!==LeaveStatus.PENDING)return res.status(409).json({message:'This request has already been decided'});const updated=await prisma.leaveRequest.update({where:{id:leave.id},data:{status:b.status,reviewerId:req.user!.id,reviewerComment:b.comment}});await prisma.notification.create({data:{userId:leave.userId,type:NotificationType.LEAVEUPDATE,message:`Your leave request was ${b.status.toLowerCase()}.`}});req.app.get('io')?.to(`user:${leave.userId}`).emit('leave:updated',updated);res.json(updated);}catch(e){next(e)}});
-app.get('/api/v1/payroll/me',requireAuth,async(req,res)=>res.json(await prisma.salaryStructure.findFirst({where:{userId:req.user!.id},orderBy:{effectiveFrom:'desc'}})));
-app.get('/api/v1/payroll',requireAuth,requireRole(Role.ADMIN),async(req,res)=>res.json(await prisma.salaryStructure.findMany({include:{user:{include:{profile:true}}},orderBy:{effectiveFrom:'desc'}})));
-app.get('/api/v1/payroll/:userId',requireAuth,requireRole(Role.ADMIN),async(req,res)=>res.json(await prisma.salaryStructure.findFirst({where:{userId:String(req.params.userId)},orderBy:{effectiveFrom:'desc'}})));
-app.put('/api/v1/payroll/:userId',requireAuth,requireRole(Role.ADMIN),async(req,res,next)=>{try{const b=z.object({baseSalary:z.coerce.number().nonnegative(),allowances:z.coerce.number().nonnegative(),deductions:z.coerce.number().nonnegative(),effectiveFrom:date}).parse(req.body);res.json(await prisma.salaryStructure.create({data:{...b,userId:String(req.params.userId),updatedBy:req.user!.id}}));}catch(e){next(e)}});
-app.get('/api/v1/notifications',requireAuth,async(req,res)=>res.json(await prisma.notification.findMany({where:{userId:req.user!.id},orderBy:{createdAt:'desc'}})));
-app.patch('/api/v1/notifications/:id/read',requireAuth,async(req,res)=>res.json(await prisma.notification.updateMany({where:{id:String(req.params.id),userId:req.user!.id},data:{isRead:true}})));
-app.use(notFound);app.use(errors);export default app;
+import authRoutes from './modules/auth/routes';
+import companyRoutes from './modules/company/routes';
+import userRoutes from './modules/users/routes';
+import attendanceRoutes from './modules/attendance/routes';
+import leaveRoutes from './modules/leave/routes';
+import payrollRoutes from './modules/payroll/routes';
+
+const app = express();
+
+// ── Global middleware ────────────────────────────────────────────────────────
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+app.use(express.json());
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
+// Rate-limit auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// ── Health check ─────────────────────────────────────────────────────────────
+app.get('/api/v1/health', (_req, res) => res.json({ status: 'ok' }));
+
+// ── Mount route modules ──────────────────────────────────────────────────────
+app.use('/api/v1/auth', authLimiter, authRoutes);
+app.use('/api/v1/company', companyRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/attendance', attendanceRoutes);
+app.use('/api/v1/leave', leaveRoutes);
+app.use('/api/v1/payroll', payrollRoutes);
+
+// Notifications (minimal — Phase 2)
+import { requireAuth } from './middleware/auth';
+import { prisma } from './lib/prisma';
+app.get('/api/v1/notifications', requireAuth, async (req, res) =>
+  res.json(await prisma.notification.findMany({ where: { userId: req.user!.id }, orderBy: { createdAt: 'desc' } }))
+);
+app.patch('/api/v1/notifications/:id/read', requireAuth, async (req, res) =>
+  res.json(await prisma.notification.updateMany({ where: { id: String(req.params.id), userId: req.user!.id }, data: { isRead: true } }))
+);
+
+// ── Error handling ───────────────────────────────────────────────────────────
+app.use(notFound);
+app.use(errors);
+
+export default app;

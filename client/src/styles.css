@@ -1,4 +1,165 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Manrope:wght@400;500;600;700;800&display=swap');
-@tailwind base; @tailwind components; @tailwind utilities;
-@layer base { :root { --gradient-primary:linear-gradient(135deg,#0F766E,#2DD4BF); --gradient-surface:linear-gradient(135deg,rgba(255,255,255,.98),rgba(240,253,250,.88)); } body{@apply bg-background text-ink font-sans antialiased;} button,a,input,select,textarea{@apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light focus-visible:ring-offset-2;} }
-@layer components { .surface{@apply rounded-3xl border border-white/80 bg-gradient-surface shadow-surface1 backdrop-blur-sm;} .btn{@apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50;} .btn-primary{@apply btn bg-primary text-white hover:bg-teal-800;} .btn-quiet{@apply btn bg-slate-100 text-ink hover:bg-slate-200;} .field{@apply mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm transition focus:border-primary;} .label{@apply text-sm font-bold text-slate-700;} .page-title{font-family:'DM Serif Display',serif;font-size:clamp(2.25rem,5vw,4.5rem);line-height:.96;letter-spacing:-.035em;} }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── §8.1 Base layer ────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --gradient-primary: linear-gradient(135deg, #0F766E, #2DD4BF);
+    --gradient-surface: linear-gradient(135deg, rgba(255,255,255,.98), rgba(240,253,250,.88));
+    --gradient-border: linear-gradient(135deg, rgba(45,212,191,.3), rgba(15,118,110,.1));
+  }
+
+  body {
+    @apply bg-background text-ink font-sans antialiased;
+  }
+
+  /* Accessible focus rings on all interactive elements */
+  button, a, input, select, textarea {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-light focus-visible:ring-offset-2;
+  }
+}
+
+/* ── §8.1 Component layer — surfaces, buttons, inputs ────────────────── */
+@layer components {
+  /* Elevation system: surface-0 → surface-3 */
+  .surface-0 {
+    @apply rounded-2xl border border-slate-100 bg-white shadow-surface-0;
+  }
+  .surface {
+    @apply rounded-3xl border border-white/80 bg-gradient-surface shadow-surface-1 backdrop-blur-sm;
+  }
+  .surface-2 {
+    @apply rounded-3xl border border-white/60 bg-gradient-surface shadow-surface-2 backdrop-blur-md;
+  }
+  .surface-3 {
+    @apply rounded-3xl border border-white/40 bg-gradient-surface shadow-surface-3 backdrop-blur-lg;
+  }
+
+  /* Glass panel — for modals, overlays */
+  .glass {
+    @apply rounded-3xl border border-white/30 bg-white/80 shadow-surface-3 backdrop-blur-xl;
+  }
+
+  /* Gradient border utility */
+  .gradient-border {
+    position: relative;
+  }
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: var(--gradient-border);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-bold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-primary text-white hover:bg-primary-dark hover:shadow-lg;
+  }
+  .btn-secondary {
+    @apply btn border border-slate-200 bg-white text-ink hover:bg-slate-50 hover:border-slate-300;
+  }
+  .btn-quiet {
+    @apply btn bg-slate-100 text-ink hover:bg-slate-200;
+  }
+  .btn-danger {
+    @apply btn bg-red-50 text-danger hover:bg-red-100;
+  }
+  .btn-success {
+    @apply btn bg-emerald-50 text-success hover:bg-emerald-100;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-sm rounded-lg;
+  }
+
+  /* Form inputs */
+  .field {
+    @apply mt-1 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm
+           transition-all duration-200 placeholder:text-slate-400
+           focus:border-primary focus:shadow-md focus:ring-1 focus:ring-primary-light;
+  }
+  .field-error {
+    @apply border-danger focus:border-danger focus:ring-danger;
+  }
+  .label {
+    @apply text-sm font-bold text-slate-600 tracking-wide;
+  }
+
+  /* Page title — fluid type scale */
+  .page-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    line-height: 0.96;
+    letter-spacing: -0.035em;
+    @apply text-ink;
+  }
+
+  /* Section heading */
+  .section-title {
+    @apply text-xs font-extrabold uppercase tracking-widest text-muted;
+  }
+
+  /* Tab styles */
+  .tab {
+    @apply relative px-4 py-2.5 text-sm font-bold text-muted transition-colors hover:text-ink;
+  }
+  .tab-active {
+    @apply text-primary;
+  }
+  .tab-active::after {
+    content: '';
+    @apply absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary;
+  }
+
+  /* Badge styles */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-extrabold;
+  }
+  .badge-success {
+    @apply badge bg-emerald-50 text-success;
+  }
+  .badge-warning {
+    @apply badge bg-amber-50 text-warning;
+  }
+  .badge-danger {
+    @apply badge bg-red-50 text-danger;
+  }
+  .badge-muted {
+    @apply badge bg-slate-100 text-muted;
+  }
+
+  /* Status dot */
+  .status-dot {
+    @apply h-3 w-3 rounded-full border-2 border-white shadow-sm;
+  }
+
+  /* Chip (skills / certifications) */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 transition hover:bg-slate-200;
+  }
+  .chip-add {
+    @apply chip border-2 border-dashed border-slate-300 bg-transparent text-muted hover:border-primary hover:text-primary hover:bg-primary/5;
+  }
+
+  /* Scrollbar styling */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-200;
+  }
+}
