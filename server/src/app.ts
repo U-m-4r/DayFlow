@@ -15,11 +15,21 @@ import userRoutes from './modules/users/routes';
 import attendanceRoutes from './modules/attendance/routes';
 import leaveRoutes from './modules/leave/routes';
 import payrollRoutes from './modules/payroll/routes';
+import notificationRoutes from './modules/notifications/routes';
 
 const app = express();
 
 // ── Global middleware ────────────────────────────────────────────────────────
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || origin === process.env.CLIENT_URL) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
@@ -41,16 +51,7 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/attendance', attendanceRoutes);
 app.use('/api/v1/leave', leaveRoutes);
 app.use('/api/v1/payroll', payrollRoutes);
-
-// Notifications (minimal — Phase 2)
-import { requireAuth } from './middleware/auth';
-import { prisma } from './lib/prisma';
-app.get('/api/v1/notifications', requireAuth, async (req, res) =>
-  res.json(await prisma.notification.findMany({ where: { userId: req.user!.id }, orderBy: { createdAt: 'desc' } }))
-);
-app.patch('/api/v1/notifications/:id/read', requireAuth, async (req, res) =>
-  res.json(await prisma.notification.updateMany({ where: { id: String(req.params.id), userId: req.user!.id }, data: { isRead: true } }))
-);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // ── Error handling ───────────────────────────────────────────────────────────
 app.use(notFound);

@@ -1,14 +1,14 @@
 /**
  * Dayflow — Route-level UI with top nav, all screens per §7, and the §8 motion system.
  * Landing page = Employees grid (§7.2). No separate dashboard.
- * Top nav: Company Logo · Employees · Attendance · Time Off · Avatar menu.
+ * Top nav: Company Logo · Employees · Attendance · Time Off · Notification Bell · Avatar menu.
  */
 import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Eye, EyeOff, FileText,
-  LogOut, Menu, Plane, Plus, Search, User as UserIcon, Users, Wallet, X
+  Bell, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Edit2, Eye, EyeOff, FileText,
+  LogOut, Menu, Plane, Plus, Save, Search, User as UserIcon, Users, Wallet, X
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { api } from './api';
@@ -26,6 +26,102 @@ function Guard({ children }: { children: React.ReactNode }) {
   if (!user) return <Navigate to="/" />;
   if (user.mustChangePassword) return <Navigate to="/change-password" />;
   return <>{children}</>;
+}
+
+// ── Notification Bell ────────────────────────────────────────────────────────
+function NotificationBell() {
+  const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
+
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => api.get('/notifications').then(r => r.data),
+    refetchInterval: 30_000,
+  });
+
+  const unread = (notifications as any[]).filter((n: any) => !n.isRead).length;
+
+  const markRead = useMutation({
+    mutationFn: (id: string) => api.patch(`/notifications/${id}/read`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
+  const markAllRead = useMutation({
+    mutationFn: () => api.patch('/notifications/read-all'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
+  const typeLabel: Record<string, string> = {
+    LEAVEUPDATE: 'Leave Update',
+    ATTENDANCEALERT: 'Attendance',
+    GENERAL: 'Info',
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-slate-100 text-muted hover:text-ink transition-colors"
+      >
+        <Bell size={18} />
+        {unread > 0 && (
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white"
+          >
+            {unread > 9 ? '9+' : unread}
+          </motion.span>
+        )}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.95 }}
+            className="surface-2 absolute right-0 top-12 w-80 z-50"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <p className="text-sm font-bold">Notifications</p>
+              {unread > 0 && (
+                <button
+                  onClick={() => markAllRead.mutate()}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {(notifications as any[]).length === 0 ? (
+                <p className="p-6 text-center text-sm text-muted">No notifications yet.</p>
+              ) : (
+                (notifications as any[]).map((n: any) => (
+                  <div
+                    key={n.id}
+                    onClick={() => { if (!n.isRead) markRead.mutate(n.id); }}
+                    className={`flex items-start gap-3 cursor-pointer px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors ${!n.isRead ? 'bg-primary/5' : ''}`}
+                  >
+                    <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${!n.isRead ? 'bg-primary' : 'bg-transparent'}`} />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-muted uppercase tracking-wider">{typeLabel[n.type] || n.type}</p>
+                      <p className="mt-0.5 text-sm">{n.message}</p>
+                      <p className="mt-1 text-xs text-muted">{new Date(n.createdAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Backdrop */}
+      {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
+    </div>
+  );
 }
 
 // ── Top Navigation (§7.2, §8.3) ─────────────────────────────────────────────
@@ -110,6 +206,9 @@ function TopNav() {
               </span>
             )}
           </div>
+
+          {/* Notification Bell */}
+          <NotificationBell />
 
           {/* Avatar dropdown */}
           <div className="relative">
@@ -511,7 +610,15 @@ function EmployeesGrid() {
             <Field label="Department" name="department" />
             <Field label="Job Position" name="designation" />
           </div>
-          <Field label="Date of Joining" name="dateOfJoining" type="date" required />
+          <Field
+            label="Date of Joining"
+            name="dateOfJoining"
+            type="date"
+            required
+            defaultValue={new Date().toISOString().slice(0, 10)}
+            min="1970-01-01"
+            max="2099-12-31"
+          />
           <Field label="Location" name="location" />
           {createEmployee.isError && (
             <p className="text-sm text-danger">{(createEmployee.error as any)?.response?.data?.message || 'Failed to create'}</p>
@@ -529,7 +636,7 @@ function EmployeesGrid() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EMPLOYEE DETAIL (§7.3 view-only for non-owner/non-admin)
+// EMPLOYEE DETAIL (§7.3 — view-only for non-owner non-admin; editable for admin)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function EmployeeDetail() {
@@ -537,11 +644,22 @@ function EmployeeDetail() {
   const { user: authUser } = useAuth();
   const isOwn = authUser?.id === id;
   const isAdmin = authUser?.role === 'ADMIN';
+  const qc = useQueryClient();
+  const { toast } = useToast();
 
   const { data: employee, isLoading } = useQuery({
     queryKey: ['employee', id],
     queryFn: () => api.get(`/users/${id}`).then(r => r.data),
     enabled: !!id,
+  });
+
+  // Admin can edit admin-only fields
+  const saveAdminFields = useMutation({
+    mutationFn: (body: any) => api.patch(`/users/${id}`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employee', id] });
+      toast('Profile updated');
+    },
   });
 
   if (isLoading) return <Shell><Skeleton className="h-64" /></Shell>;
@@ -551,6 +669,8 @@ function EmployeeDetail() {
   if (isOwn) return <Navigate to="/profile" />;
 
   const p = employee.profile || {};
+  const managerName = p.manager?.profile?.fullName;
+
   return (
     <Shell>
       {/* Profile header */}
@@ -573,11 +693,38 @@ function EmployeeDetail() {
           {p.department && <div><span className="section-title">Department</span><p className="mt-1 font-bold">{p.department}</p></div>}
           {p.location && <div><span className="section-title">Location</span><p className="mt-1 font-bold">{p.location}</p></div>}
           {p.dateOfJoining && <div><span className="section-title">Joined</span><p className="mt-1 font-bold">{new Date(p.dateOfJoining).toLocaleDateString()}</p></div>}
+          {managerName && <div><span className="section-title">Manager</span><p className="mt-1 font-bold">{managerName}</p></div>}
         </div>
+
+        {/* Admin edit fields */}
+        {isAdmin && (
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              const f = Object.fromEntries(new FormData(e.currentTarget));
+              saveAdminFields.mutate(f);
+            }}
+            className="mt-6 border-t border-slate-100 pt-6"
+          >
+            <p className="section-title mb-4">Admin: Edit Profile Fields</p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Department" name="department" defaultValue={p.department || ''} />
+              <Field label="Job Position" name="designation" defaultValue={p.designation || ''} />
+              <Field label="Location" name="location" defaultValue={p.location || ''} />
+              <Field label="Date of Joining" name="dateOfJoining" type="date" defaultValue={p.dateOfJoining?.slice(0, 10) || ''} min="1970-01-01" max="2099-12-31" />
+            </div>
+            {saveAdminFields.isError && (
+              <p className="mt-2 text-sm text-danger">{(saveAdminFields.error as any)?.response?.data?.message || 'Failed to update'}</p>
+            )}
+            <Button size="sm" className="mt-4" disabled={saveAdminFields.isPending}>
+              <Save size={14} /> {saveAdminFields.isPending ? 'Saving…' : 'Save Changes'}
+            </Button>
+          </form>
+        )}
       </div>
 
-      {/* View-only tabs */}
-      <ProfileTabs data={employee} viewOnly isAdmin={isAdmin} />
+      {/* View-only tabs (Admin sees Salary Info too) */}
+      <ProfileTabs data={employee} viewOnly={!isAdmin} isAdmin={isAdmin} />
     </Shell>
   );
 }
@@ -599,6 +746,8 @@ function MyProfile() {
   if (!data) return <Shell><Empty>Profile not found.</Empty></Shell>;
 
   const p = data.profile || {};
+  const managerName = p.manager?.profile?.fullName;
+
   return (
     <Shell>
       {/* Header */}
@@ -620,6 +769,7 @@ function MyProfile() {
             {data.companyName && <div><span className="section-title">Company</span><p className="mt-1 font-bold">{data.companyName}</p></div>}
             {p.department && <div><span className="section-title">Department</span><p className="mt-1 font-bold">{p.department}</p></div>}
             {p.location && <div><span className="section-title">Location</span><p className="mt-1 font-bold">{p.location}</p></div>}
+            {managerName && <div><span className="section-title">Manager</span><p className="mt-1 font-bold">{managerName}</p></div>}
           </div>
         </div>
       </div>
@@ -810,7 +960,7 @@ function ProfileTabs({ data, viewOnly, isAdmin }: { data: any; viewOnly: boolean
   );
 }
 
-// ── Salary Info Tab ─────────────────────────────────────────────────────────
+// ── Salary Info Tab (§7.6) — Editable wage, components, PF, tax ─────────────
 function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; salary?: any }) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -826,11 +976,81 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['payroll', userId] }); toast('Wage updated'); },
   });
 
+  const saveComponents = useMutation({
+    mutationFn: (body: any[]) => api.put(`/payroll/${userId}/components`, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payroll', userId] }); toast('Components updated'); },
+  });
+
+  const savePf = useMutation({
+    mutationFn: (body: any[]) => api.put(`/payroll/${userId}/pf`, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payroll', userId] }); toast('PF contributions updated'); },
+  });
+
+  const saveTax = useMutation({
+    mutationFn: (body: any[]) => api.put(`/payroll/${userId}/tax`, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payroll', userId] }); toast('Tax deductions updated'); },
+  });
+
   const wage = salary?.wage;
   const components = salary?.components || [];
   const pf = salary?.pf || [];
   const tax = salary?.tax || [];
   const fmt = (n: any) => Number(n || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+
+  // Local state for inline component editing
+  const [editComponents, setEditComponents] = useState<any[]>([]);
+  const [editPf, setEditPf] = useState<any[]>([]);
+  const [editTax, setEditTax] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (components.length) {
+      setEditComponents(components.map((c: any) => ({
+        name: c.name,
+        computationType: c.computationType,
+        basisOf: c.basisOf,
+        value: Number(c.value),
+        description: c.description || '',
+      })));
+    } else {
+      // Default component template
+      setEditComponents([
+        { name: 'BASIC', computationType: 'PERCENTAGE', basisOf: 'WAGE', value: 40, description: 'Basic Salary' },
+        { name: 'HRA', computationType: 'PERCENTAGE', basisOf: 'BASIC', value: 50, description: 'House Rent Allowance' },
+        { name: 'STANDARD_ALLOWANCE', computationType: 'PERCENTAGE', basisOf: 'WAGE', value: 10, description: 'Standard Allowance' },
+        { name: 'PERFORMANCE_BONUS', computationType: 'PERCENTAGE', basisOf: 'BASIC', value: 5, description: 'Performance Bonus' },
+        { name: 'LTA', computationType: 'PERCENTAGE', basisOf: 'BASIC', value: 5, description: 'Leave Travel Allowance' },
+        { name: 'FIXED_ALLOWANCE', computationType: 'FIXED', basisOf: 'WAGE', value: 0, description: 'Fixed Allowance (auto-remainder)' },
+      ]);
+    }
+  }, [salary]);
+
+  useEffect(() => {
+    if (pf.length) {
+      setEditPf(pf.map((p: any) => ({ payer: p.payer, ratePercent: Number(p.ratePercent) })));
+    } else {
+      setEditPf([
+        { payer: 'EMPLOYEE', ratePercent: 12 },
+        { payer: 'EMPLOYER', ratePercent: 12 },
+      ]);
+    }
+  }, [salary]);
+
+  useEffect(() => {
+    if (tax.length) {
+      setEditTax(tax.map((t: any) => ({ name: t.name, amount: Number(t.amount) })));
+    } else {
+      setEditTax([{ name: 'Professional Tax', amount: 200 }]);
+    }
+  }, [salary]);
+
+  const COMPONENT_LABELS: Record<string, string> = {
+    BASIC: 'Basic Salary',
+    HRA: 'House Rent Allowance',
+    STANDARD_ALLOWANCE: 'Standard Allowance',
+    PERFORMANCE_BONUS: 'Performance Bonus',
+    LTA: 'Leave Travel Allowance',
+    FIXED_ALLOWANCE: 'Fixed Allowance',
+  };
 
   return (
     <Stagger className="grid gap-6 lg:grid-cols-2">
@@ -852,50 +1072,139 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
         </form>
       </StaggerItem>
 
-      {/* Components */}
+      {/* Salary Components */}
       <StaggerItem className="surface p-6">
         <h3 className="section-title">Salary Components</h3>
         <div className="mt-4 space-y-3">
-          {components.map((c: any) => (
-            <div key={c.id} className="flex items-center justify-between border-b border-slate-50 pb-2">
-              <div>
-                <p className="text-sm font-bold">{c.name.replace(/_/g, ' ')}</p>
-                <p className="text-xs text-muted">
-                  {c.computationType === 'PERCENTAGE' ? `${Number(c.value)}% of ${c.basisOf}` : `Fixed ₹${Number(c.value).toLocaleString()}`}
-                </p>
+          {editComponents.map((c, i) => (
+            <div key={c.name} className="border border-slate-100 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold">{COMPONENT_LABELS[c.name] || c.name.replace(/_/g, ' ')}</p>
+                {components.find((sc: any) => sc.name === c.name) && (
+                  <p className="text-sm font-bold text-primary">
+                    {fmt(components.find((sc: any) => sc.name === c.name)?.computedAmount)}/mo
+                  </p>
+                )}
               </div>
-              <p className="font-bold text-primary">{fmt(c.computedAmount)}/mo</p>
+              {c.name !== 'FIXED_ALLOWANCE' && (
+                <div className="grid grid-cols-3 gap-2">
+                  <select
+                    value={c.computationType}
+                    onChange={e => setEditComponents(prev => prev.map((x, xi) => xi === i ? { ...x, computationType: e.target.value } : x))}
+                    className="field !mt-0 text-xs"
+                  >
+                    <option value="PERCENTAGE">%</option>
+                    <option value="FIXED">Fixed ₹</option>
+                  </select>
+                  {c.computationType === 'PERCENTAGE' && (
+                    <select
+                      value={c.basisOf}
+                      onChange={e => setEditComponents(prev => prev.map((x, xi) => xi === i ? { ...x, basisOf: e.target.value } : x))}
+                      className="field !mt-0 text-xs"
+                    >
+                      <option value="WAGE">of Wage</option>
+                      <option value="BASIC">of Basic</option>
+                    </select>
+                  )}
+                  <input
+                    type="number"
+                    value={c.value}
+                    min="0"
+                    step="0.01"
+                    onChange={e => setEditComponents(prev => prev.map((x, xi) => xi === i ? { ...x, value: Number(e.target.value) } : x))}
+                    className="field !mt-0 text-xs"
+                    placeholder={c.computationType === 'PERCENTAGE' ? '%' : '₹'}
+                  />
+                </div>
+              )}
+              {c.name === 'FIXED_ALLOWANCE' && (
+                <p className="text-xs text-muted">Auto-calculated as remainder of Wage − other components</p>
+              )}
             </div>
           ))}
-          {!components.length && <p className="text-sm text-muted">No components configured yet.</p>}
+          {saveComponents.isError && <p className="text-sm text-danger">{(saveComponents.error as any)?.response?.data?.message}</p>}
+          <Button size="sm" onClick={() => saveComponents.mutate(editComponents)} disabled={saveComponents.isPending || !wage}>
+            {saveComponents.isPending ? 'Saving…' : 'Save Components'}
+          </Button>
+          {!wage && <p className="text-xs text-warning">Set month wage first</p>}
         </div>
       </StaggerItem>
 
-      {/* PF */}
+      {/* Provident Fund */}
       <StaggerItem className="surface p-6">
-        <h3 className="section-title">Provident Fund</h3>
+        <h3 className="section-title">Provident Fund (PF)</h3>
         <div className="mt-4 space-y-3">
-          {pf.map((p: any) => (
-            <div key={p.id} className="flex items-center justify-between">
-              <p className="text-sm font-bold">{p.payer} ({Number(p.ratePercent)}%)</p>
-              <p className="font-bold">{fmt(p.computedAmount)}/mo</p>
+          {editPf.map((p, i) => (
+            <div key={p.payer} className="flex items-center gap-3">
+              <p className="w-32 text-sm font-bold shrink-0">{p.payer === 'EMPLOYEE' ? 'Employee' : 'Employer'}</p>
+              <div className="flex items-center gap-1 flex-1">
+                <input
+                  type="number"
+                  value={p.ratePercent}
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  onChange={e => setEditPf(prev => prev.map((x, xi) => xi === i ? { ...x, ratePercent: Number(e.target.value) } : x))}
+                  className="field !mt-0 flex-1"
+                />
+                <span className="text-sm text-muted">%</span>
+              </div>
+              {pf.find((pfc: any) => pfc.payer === p.payer) && (
+                <p className="text-sm font-bold w-24 text-right">{fmt(pf.find((pfc: any) => pfc.payer === p.payer)?.computedAmount)}/mo</p>
+              )}
             </div>
           ))}
-          {!pf.length && <p className="text-sm text-muted">No PF configured.</p>}
+          {savePf.isError && <p className="text-sm text-danger">{(savePf.error as any)?.response?.data?.message}</p>}
+          <Button size="sm" onClick={() => savePf.mutate(editPf)} disabled={savePf.isPending}>
+            {savePf.isPending ? 'Saving…' : 'Save PF Rates'}
+          </Button>
         </div>
       </StaggerItem>
 
-      {/* Tax */}
+      {/* Tax Deductions */}
       <StaggerItem className="surface p-6">
         <h3 className="section-title">Tax Deductions</h3>
         <div className="mt-4 space-y-3">
-          {tax.map((t: any) => (
-            <div key={t.id} className="flex items-center justify-between">
-              <p className="text-sm font-bold">{t.name}</p>
-              <p className="font-bold text-danger">{fmt(t.amount)}/mo</p>
+          {editTax.map((t, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <input
+                type="text"
+                value={t.name}
+                onChange={e => setEditTax(prev => prev.map((x, xi) => xi === i ? { ...x, name: e.target.value } : x))}
+                className="field !mt-0 flex-1"
+                placeholder="Tax name"
+              />
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-muted">₹</span>
+                <input
+                  type="number"
+                  value={t.amount}
+                  min="0"
+                  step="1"
+                  onChange={e => setEditTax(prev => prev.map((x, xi) => xi === i ? { ...x, amount: Number(e.target.value) } : x))}
+                  className="field !mt-0 w-24"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditTax(prev => prev.filter((_, xi) => xi !== i))}
+                className="text-muted hover:text-danger"
+              >
+                <X size={14} />
+              </button>
             </div>
           ))}
-          {!tax.length && <p className="text-sm text-muted">No tax deductions.</p>}
+          <button
+            type="button"
+            onClick={() => setEditTax(prev => [...prev, { name: '', amount: 0 }])}
+            className="chip-add"
+          >
+            <Plus size={12} /> Add Tax
+          </button>
+          {saveTax.isError && <p className="text-sm text-danger">{(saveTax.error as any)?.response?.data?.message}</p>}
+          <Button size="sm" onClick={() => saveTax.mutate(editTax)} disabled={saveTax.isPending}>
+            {saveTax.isPending ? 'Saving…' : 'Save Tax Deductions'}
+          </Button>
         </div>
       </StaggerItem>
     </Stagger>
@@ -1103,6 +1412,101 @@ function AdminAttendance() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// LEAVE CALENDAR (§7.5) — Year-view calendar for employees
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+const LEAVE_COLORS: Record<string, { bg: string; text: string }> = {
+  PAID: { bg: 'bg-primary/15', text: 'text-primary' },
+  SICK: { bg: 'bg-warning/15', text: 'text-warning' },
+  UNPAID: { bg: 'bg-muted/10', text: 'text-muted' },
+};
+
+function LeaveCalendar({ leaves }: { leaves: any[] }) {
+  const year = new Date().getFullYear();
+
+  // Build a map: date string → leave info
+  const leaveMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const leave of leaves) {
+      if (leave.status === 'REJECTED') continue;
+      const start = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      const d = new Date(start);
+      while (d <= end) {
+        map[d.toISOString().slice(0, 10)] = leave;
+        d.setDate(d.getDate() + 1);
+      }
+    }
+    return map;
+  }, [leaves]);
+
+  return (
+    <div className="mt-8">
+      <h2 className="section-title mb-4">Year Calendar — {year}</h2>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {MONTH_NAMES.map((monthName, monthIdx) => {
+          const firstDay = new Date(year, monthIdx, 1);
+          const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+          const startDow = firstDay.getDay(); // 0=Sun
+
+          return (
+            <div key={monthIdx} className="surface p-4">
+              <p className="mb-3 text-sm font-bold">{monthName}</p>
+              <div className="grid grid-cols-7 gap-0.5">
+                {DAY_NAMES.map(d => (
+                  <div key={d} className="text-center text-[9px] font-bold text-muted py-0.5">{d}</div>
+                ))}
+                {/* Blank cells for start */}
+                {Array.from({ length: startDow }).map((_, i) => (
+                  <div key={`blank-${i}`} />
+                ))}
+                {Array.from({ length: daysInMonth }).map((_, i) => {
+                  const day = i + 1;
+                  const dateStr = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                  const leave = leaveMap[dateStr];
+                  const isToday = dateStr === new Date().toISOString().slice(0, 10);
+
+                  return (
+                    <div
+                      key={day}
+                      title={leave ? `${leave.leaveType} (${leave.status})` : undefined}
+                      className={`
+                        flex h-6 w-full items-center justify-center rounded text-[10px] font-medium
+                        ${isToday ? 'ring-1 ring-primary font-bold' : ''}
+                        ${leave ? `${LEAVE_COLORS[leave.leaveType]?.bg || 'bg-slate-100'} ${LEAVE_COLORS[leave.leaveType]?.text || ''}` : 'hover:bg-slate-50'}
+                      `}
+                    >
+                      {day}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="mt-4 flex flex-wrap gap-4">
+        {Object.entries(LEAVE_COLORS).map(([type, colors]) => (
+          <div key={type} className="flex items-center gap-2">
+            <span className={`h-3 w-3 rounded ${colors.bg}`} />
+            <span className="text-xs font-medium text-muted">{type === 'PAID' ? 'Paid Time Off' : type === 'SICK' ? 'Sick Leave' : 'Unpaid Leave'}</span>
+          </div>
+        ))}
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded ring-1 ring-primary" />
+          <span className="text-xs font-medium text-muted">Today</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TIME OFF / LEAVE (§7.5)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1111,14 +1515,15 @@ function TimeOffPage() {
   const isAdmin = user?.role === 'ADMIN';
   const [subTab, setSubTab] = useState<'requests' | 'allocation'>('requests');
   const [showRequest, setShowRequest] = useState(false);
+  const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null);
+  const [rejectComment, setRejectComment] = useState('');
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  // Leave allocations / balances
+  // Leave allocations / balances — both roles see their own
   const { data: allocations = [] } = useQuery({
     queryKey: ['allocations'],
     queryFn: () => api.get('/leave/allocations/me').then(r => r.data),
-    enabled: !isAdmin,
   });
 
   // Leave requests
@@ -1130,12 +1535,23 @@ function TimeOffPage() {
 
   const applyLeave = useMutation({
     mutationFn: (body: FormData) => api.post('/leave', body, { headers: { 'Content-Type': 'multipart/form-data' } }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['leave-requests'] }); qc.invalidateQueries({ queryKey: ['allocations'] }); setShowRequest(false); toast('Leave request submitted'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leave-requests'] });
+      qc.invalidateQueries({ queryKey: ['allocations'] });
+      setShowRequest(false);
+      toast('Leave request submitted');
+    },
   });
 
   const decide = useMutation({
     mutationFn: ({ id, status, comment }: any) => api.patch(`/leave/${id}/decision`, { status, comment }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['leave-requests'] }); toast('Decision recorded'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leave-requests'] });
+      qc.invalidateQueries({ queryKey: ['allocations'] });
+      toast('Decision recorded');
+      setRejectModal(null);
+      setRejectComment('');
+    },
   });
 
   const getBalance = (type: string) => {
@@ -1144,32 +1560,37 @@ function TimeOffPage() {
     return { total: Number(alloc.totalDays), used: Number(alloc.usedDays), available: Number(alloc.totalDays) - Number(alloc.usedDays) };
   };
 
+  const LEAVE_TYPE_LABELS: Record<string, string> = {
+    PAID: 'Paid Time Off',
+    SICK: 'Sick Leave',
+    UNPAID: 'Unpaid Leave',
+  };
+
   return (
     <Shell>
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="page-title">Time Off</h1>
+        {/* Both roles can request leave */}
         <Button className="ml-auto" onClick={() => setShowRequest(true)}>
-          <Plus size={16} /> New
+          <Plus size={16} /> New Request
         </Button>
       </div>
 
-      {/* Balance headers (employee only) */}
-      {!isAdmin && (
-        <Stagger className="mt-6 grid gap-4 sm:grid-cols-3">
-          {(['PAID', 'SICK', 'UNPAID'] as const).map(type => {
-            const b = getBalance(type);
-            const label = type === 'PAID' ? 'Paid Time Off' : type === 'SICK' ? 'Sick Leave' : 'Unpaid Leave';
-            return (
-              <StaggerItem key={type} className="surface relative overflow-hidden p-6">
-                <div className="absolute inset-0 bg-gradient-glow opacity-40" />
-                <p className="section-title relative">{label}</p>
-                <p className="relative mt-2 font-display text-4xl text-primary">{type === 'UNPAID' ? '∞' : b.available}</p>
-                <p className="relative text-xs text-muted">{type !== 'UNPAID' ? `${b.total} total · ${b.used} used` : 'No limit'}</p>
-              </StaggerItem>
-            );
-          })}
-        </Stagger>
-      )}
+      {/* Balance headers — BOTH roles see their own balances (§7.5) */}
+      <Stagger className="mt-6 grid gap-4 sm:grid-cols-3">
+        {(['PAID', 'SICK', 'UNPAID'] as const).map(type => {
+          const b = getBalance(type);
+          const label = LEAVE_TYPE_LABELS[type];
+          return (
+            <StaggerItem key={type} className="surface relative overflow-hidden p-6">
+              <div className="absolute inset-0 bg-gradient-glow opacity-40" />
+              <p className="section-title relative">{label}</p>
+              <p className="relative mt-2 font-display text-4xl text-primary">{type === 'UNPAID' ? '∞' : b.available}</p>
+              <p className="relative text-xs text-muted">{type !== 'UNPAID' ? `${b.total} total · ${b.used} used` : 'No limit'}</p>
+            </StaggerItem>
+          );
+        })}
+      </Stagger>
 
       {/* Admin sub-tabs */}
       {isAdmin && (
@@ -1196,12 +1617,20 @@ function TimeOffPage() {
                   className="surface flex flex-wrap items-center gap-4 p-5"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold">{item.user?.profile?.fullName || item.leaveType.replace('_', ' ')}</p>
+                    {/* Show employee name for admin, leave type label for employee */}
+                    <p className="font-bold">
+                      {isAdmin
+                        ? (item.user?.profile?.fullName || 'Unknown Employee')
+                        : LEAVE_TYPE_LABELS[item.leaveType] || item.leaveType
+                      }
+                    </p>
                     <p className="text-sm text-muted">
                       {new Date(item.startDate).toLocaleDateString()} — {new Date(item.endDate).toLocaleDateString()}
-                      {' · '}{Number(item.days)} day{Number(item.days) !== 1 ? 's' : ''} · {item.leaveType}
+                      {' · '}{Number(item.days)} day{Number(item.days) !== 1 ? 's' : ''}
+                      {isAdmin && ` · ${LEAVE_TYPE_LABELS[item.leaveType] || item.leaveType}`}
                     </p>
                     {item.remarks && <p className="mt-1 text-xs text-muted">"{item.remarks}"</p>}
+                    {item.reviewerComment && <p className="mt-1 text-xs text-warning">Comment: {item.reviewerComment}</p>}
                   </div>
                   <Status value={item.status} />
                   {isAdmin && item.status === 'PENDING' && (
@@ -1210,8 +1639,8 @@ function TimeOffPage() {
                         Approve
                       </Button>
                       <Button size="sm" variant="danger" onClick={() => {
-                        const comment = prompt('Reason for rejection:');
-                        if (comment) decide.mutate({ id: item.id, status: 'REJECTED', comment });
+                        setRejectModal({ id: item.id });
+                        setRejectComment('');
                       }}>
                         Reject
                       </Button>
@@ -1225,6 +1654,9 @@ function TimeOffPage() {
           </AnimatePresence>
         </div>
       )}
+
+      {/* Employee: year-view calendar */}
+      {!isAdmin && <LeaveCalendar leaves={requests} />}
 
       {/* Allocation sub-tab (Admin) */}
       {isAdmin && subTab === 'allocation' && <AllocationTab />}
@@ -1262,6 +1694,34 @@ function TimeOffPage() {
             <Button type="button" variant="quiet" onClick={() => setShowRequest(false)}>Discard</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Reject modal — proper modal instead of prompt() */}
+      <Modal open={!!rejectModal} onClose={() => { setRejectModal(null); setRejectComment(''); }} title="Reject Leave Request">
+        <div className="space-y-4">
+          <p className="text-sm text-muted">Please provide a reason for rejecting this leave request.</p>
+          <TextArea
+            label="Reason for Rejection"
+            name="comment"
+            value={rejectComment}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRejectComment(e.target.value)}
+            placeholder="Enter rejection reason…"
+            required
+          />
+          {decide.isError && (
+            <p className="text-sm text-danger">{(decide.error as any)?.response?.data?.message || 'Failed'}</p>
+          )}
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="danger"
+              disabled={!rejectComment.trim() || decide.isPending}
+              onClick={() => rejectModal && decide.mutate({ id: rejectModal.id, status: 'REJECTED', comment: rejectComment })}
+            >
+              {decide.isPending ? 'Rejecting…' : 'Confirm Rejection'}
+            </Button>
+            <Button type="button" variant="quiet" onClick={() => { setRejectModal(null); setRejectComment(''); }}>Cancel</Button>
+          </div>
+        </div>
       </Modal>
     </Shell>
   );
@@ -1310,7 +1770,7 @@ function AllocationTab() {
                 }}
                 className="surface p-5 space-y-3"
               >
-                <h4 className="text-sm font-bold">{type.replace('_', ' ')} Leave</h4>
+                <h4 className="text-sm font-bold">{type === 'PAID' ? 'Paid Time Off' : type === 'SICK' ? 'Sick Leave' : 'Unpaid Leave'}</h4>
                 <Field label="Total Days" name="totalDays" type="number" step="0.5" defaultValue={alloc ? Number(alloc.totalDays) : 0} />
                 <p className="text-xs text-muted">Used: {alloc ? Number(alloc.usedDays) : 0}</p>
                 <Button size="sm" disabled={save.isPending}>Save</Button>

@@ -24,7 +24,8 @@ const passwordSchema = z
   .regex(/[^A-Za-z0-9]/, 'Password needs at least one symbol');
 
 function makeTokens(user: { id: string; role: Role; email: string }) {
-  return { accessToken: signAccess(user), refreshToken: signRefresh(user) };
+  const tokenPayload = { id: user.id, role: user.role, email: user.email };
+  return { accessToken: signAccess(tokenPayload), refreshToken: signRefresh(tokenPayload) };
 }
 
 // ── POST /auth/signup — Company registration (§7.1) ─────────────────────────

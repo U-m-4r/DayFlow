@@ -16,6 +16,13 @@ import { sendCredentials } from '../../lib/mailer';
 
 const router = Router();
 const optionalText = z.string().trim().max(500).optional().nullable();
+const validDate = z.coerce.date().refine(
+  (d) => {
+    const y = d.getFullYear();
+    return !isNaN(y) && y >= 1900 && y <= 2100;
+  },
+  { message: 'Date must be a valid date between 1900 and 2100' }
+);
 const today = () => new Date(new Date().toISOString().slice(0, 10));
 
 // Helper: compute today's status for an employee
@@ -89,7 +96,7 @@ const createEmployeeSchema = z.object({
   phone: z.string().regex(/^[0-9+() -]{7,20}$/),
   department: z.string().trim().max(120).optional(),
   designation: z.string().trim().max(120).optional(),
-  dateOfJoining: z.coerce.date(),
+  dateOfJoining: validDate,
   location: optionalText,
 });
 
@@ -163,7 +170,11 @@ router.get('/me', requireAuth, async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user!.id },
     include: {
-      profile: true,
+      profile: {
+        include: {
+          manager: { include: { profile: true } },
+        },
+      },
       company: true,
       skills: true,
       certifications: true,
@@ -197,7 +208,7 @@ router.patch('/me', requireAuth, upload.single('profilePicture'), async (req, re
       phone: z.string().regex(/^[0-9+() -]{7,20}$/).optional(),
       personalEmail: z.string().email().optional().nullable(),
       residingAddress: z.string().max(500).optional().nullable(),
-      dateOfBirth: z.coerce.date().optional().nullable(),
+      dateOfBirth: validDate.optional().nullable(),
       nationality: z.string().max(100).optional().nullable(),
       gender: z.string().max(50).optional().nullable(),
       maritalStatus: z.string().max(50).optional().nullable(),
@@ -234,7 +245,11 @@ router.get('/:id', requireAuth, async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: String(req.params.id) },
     include: {
-      profile: true,
+      profile: {
+        include: {
+          manager: { include: { profile: true } },
+        },
+      },
       company: true,
       skills: true,
       certifications: true,
@@ -275,7 +290,7 @@ router.patch('/:id', requireAuth, requireRole(Role.ADMIN), async (req, res, next
       fullName: z.string().min(2).max(120).optional(),
       department: optionalText,
       designation: optionalText,
-      dateOfJoining: z.coerce.date().optional(),
+      dateOfJoining: validDate.optional(),
       managerId: z.string().uuid().nullable().optional(),
       location: optionalText,
     }).parse(req.body);
