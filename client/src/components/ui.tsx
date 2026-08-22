@@ -1,12 +1,12 @@
 /**
- * Shared UI primitives — §8.1 / §8.3.
- * Button, Field, Status badge, StatusDot, Empty state, Modal, Toast system, Chip.
- * Every component uses the design tokens and motion primitives.
+ * Shared UI primitives — §8.1 / §8.3 (Enhanced Modern SaaS Edition).
+ * Button, Field, Select, TextArea, Status badge, StatusDot, Empty state, Modal, Toast system, Chip.
+ * Every component uses modern design tokens and Framer Motion primitives.
  */
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, Clock3, XCircle, X, Plane, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, XCircle, X, Plane, AlertCircle, Sparkles } from 'lucide-react';
 
 // ── Button ──────────────────────────────────────────────────────────────────
 export function Button({
@@ -28,7 +28,7 @@ export function Button({
 
   return (
     <motion.button
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ scale: 1.015 }}
       whileTap={{ scale: 0.98 }}
       className={`${base} ${sizeClass} ${className}`}
       {...(props as any)}
@@ -50,15 +50,15 @@ export function Field({
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className={`block ${className}`}>
-      <span className="label">{label}</span>
+      {label && <span className="label block">{label}</span>}
       <input className={`field ${error ? 'field-error' : ''}`} {...props} />
       {error && (
         <motion.span
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-1 flex items-center gap-1 text-xs text-danger"
+          className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-danger"
         >
-          <AlertCircle size={12} /> {error}
+          <AlertCircle size={13} className="shrink-0" /> {error}
         </motion.span>
       )}
     </label>
@@ -79,11 +79,19 @@ export function Select({
 } & React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <label className={`block ${className}`}>
-      <span className="label">{label}</span>
+      {label && <span className="label block">{label}</span>}
       <select className={`field ${error ? 'field-error' : ''}`} {...props}>
         {children}
       </select>
-      {error && <span className="mt-1 block text-xs text-danger">{error}</span>}
+      {error && (
+        <motion.span
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-danger"
+        >
+          <AlertCircle size={13} className="shrink-0" /> {error}
+        </motion.span>
+      )}
     </label>
   );
 }
@@ -100,9 +108,17 @@ export function TextArea({
 } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <label className={`block ${className}`}>
-      <span className="label">{label}</span>
-      <textarea className={`field min-h-[80px] ${error ? 'field-error' : ''}`} {...props} />
-      {error && <span className="mt-1 block text-xs text-danger">{error}</span>}
+      {label && <span className="label block">{label}</span>}
+      <textarea className={`field min-h-[88px] ${error ? 'field-error' : ''}`} {...props} />
+      {error && (
+        <motion.span
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-danger"
+        >
+          <AlertCircle size={13} className="shrink-0" /> {error}
+        </motion.span>
+      )}
     </label>
   );
 }
@@ -118,14 +134,22 @@ export function Status({ value }: { value: string }) {
 
   return (
     <motion.span layout className={kind}>
-      <Icon size={14} />
-      {value.replace(/_/g, ' ')}
+      <Icon size={13} className="shrink-0" />
+      <span>{value.replace(/_/g, ' ')}</span>
     </motion.span>
   );
 }
 
 // ── StatusDot — green/yellow/airplane (§7.2) ────────────────────────────────
-export function StatusDot({ status, size = 'md' }: { status: 'PRESENT' | 'ON_LEAVE' | 'ABSENT' | string; size?: 'sm' | 'md' | 'lg' }) {
+export function StatusDot({
+  status,
+  size = 'md',
+  pulse = false,
+}: {
+  status: 'PRESENT' | 'ON_LEAVE' | 'ABSENT' | string;
+  size?: 'sm' | 'md' | 'lg';
+  pulse?: boolean;
+}) {
   const sizeClass = size === 'sm' ? 'h-2.5 w-2.5' : size === 'lg' ? 'h-4 w-4' : 'h-3 w-3';
 
   if (status === 'ON_LEAVE') {
@@ -134,31 +158,49 @@ export function StatusDot({ status, size = 'md' }: { status: 'PRESENT' | 'ON_LEA
         layout
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
-        className={`inline-flex items-center justify-center ${sizeClass}`}
+        className={`inline-flex items-center justify-center rounded-full bg-teal-50 border border-teal-200 ${sizeClass}`}
       >
-        <Plane size={size === 'sm' ? 10 : size === 'lg' ? 16 : 12} className="text-primary" />
+        <Plane size={size === 'sm' ? 10 : size === 'lg' ? 15 : 12} className="text-primary" />
       </motion.span>
     );
   }
 
-  const color = status === 'PRESENT' ? 'bg-success' : 'bg-warning';
+  const isPresent = status === 'PRESENT';
+  const color = isPresent ? 'bg-emerald-500' : 'bg-amber-400';
+
   return (
-    <motion.span
-      layout
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-      className={`status-dot ${sizeClass} ${color}`}
-    />
+    <span className="relative inline-flex items-center justify-center">
+      {isPresent && pulse && (
+        <span className={`absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60`} />
+      )}
+      <motion.span
+        layout
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+        className={`status-dot ${sizeClass} ${color}`}
+      />
+    </span>
   );
 }
 
 // ── Empty state ─────────────────────────────────────────────────────────────
-export function Empty({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) {
+export function Empty({
+  children,
+  icon,
+  action,
+}: {
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="surface flex flex-col items-center justify-center p-12 text-center text-muted">
-      {icon && <div className="mb-4 text-slate-300">{icon}</div>}
-      <p className="text-sm font-medium">{children}</p>
+    <div className="surface flex flex-col items-center justify-center p-12 text-center text-slate-400">
+      <div className="relative mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100/80 text-slate-400 border border-slate-200/50 shadow-inner">
+        {icon || <Sparkles size={28} className="text-slate-300" />}
+      </div>
+      <p className="max-w-sm text-sm font-medium text-slate-600">{children}</p>
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
@@ -166,7 +208,7 @@ export function Empty({ children, icon }: { children: React.ReactNode; icon?: Re
 // ── Loading skeleton ────────────────────────────────────────────────────────
 export function Skeleton({ className = '' }: { className?: string }) {
   return (
-    <div className={`animate-pulse rounded-xl bg-slate-100 ${className}`} />
+    <div className={`animate-pulse rounded-2xl bg-slate-100/90 border border-slate-200/30 ${className}`} />
   );
 }
 
@@ -182,7 +224,6 @@ export function Modal({
   title: string;
   children: React.ReactNode;
 }) {
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -198,31 +239,34 @@ export function Modal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-md"
             onClick={onClose}
           />
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
             onClick={onClose}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.94, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="glass w-full max-w-lg max-h-[90vh] overflow-y-auto p-8"
+              exit={{ opacity: 0, scale: 0.94, y: 16 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+              className="glass w-full max-w-xl max-h-[92vh] overflow-y-auto p-6 sm:p-8 scrollbar-thin border border-white/70 shadow-2xl"
               role="dialog"
               aria-modal="true"
               aria-label={title}
               onClick={e => e.stopPropagation()}
             >
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="font-display text-2xl">{title}</h2>
-                <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-slate-100 hover:text-ink">
-                  <X size={20} />
+              <div className="mb-6 flex items-center justify-between border-b border-slate-100/80 pb-4">
+                <h2 className="font-display text-2xl tracking-tight text-ink">{title}</h2>
+                <button
+                  onClick={onClose}
+                  className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-ink transition-colors"
+                >
+                  <X size={18} />
                 </button>
               </div>
               {children}
@@ -254,22 +298,32 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastCtx.Provider value={{ toast }}>
       {children}
       {createPortal(
-        <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2">
+        <div className="fixed bottom-6 right-6 z-[60] flex flex-col gap-2.5">
           <AnimatePresence>
             {toasts.map(t => (
               <motion.div
                 key={t.id}
                 layout
-                initial={{ opacity: 0, x: 80, scale: 0.9 }}
+                initial={{ opacity: 0, x: 80, scale: 0.92 }}
                 animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 80, scale: 0.9 }}
+                exit={{ opacity: 0, x: 80, scale: 0.92 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                className={`glass flex items-center gap-3 px-5 py-3 text-sm font-bold shadow-surface-3 ${
-                  t.type === 'error' ? 'text-danger' : t.type === 'info' ? 'text-primary' : 'text-success'
+                className={`glass flex items-center gap-3 px-5 py-3 text-sm font-bold shadow-surface-3 border ${
+                  t.type === 'error'
+                    ? 'text-danger border-red-200/80 bg-red-50/90'
+                    : t.type === 'info'
+                    ? 'text-primary border-teal-200/80 bg-teal-50/90'
+                    : 'text-emerald-700 border-emerald-200/80 bg-emerald-50/90'
                 }`}
               >
-                {t.type === 'error' ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
-                {t.message}
+                {t.type === 'error' ? (
+                  <XCircle size={18} className="shrink-0 text-danger" />
+                ) : t.type === 'info' ? (
+                  <Sparkles size={18} className="shrink-0 text-primary" />
+                ) : (
+                  <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
+                )}
+                <span>{t.message}</span>
               </motion.div>
             ))}
           </AnimatePresence>
@@ -290,9 +344,12 @@ export function Chip({
 }) {
   return (
     <motion.span layout className="chip">
-      {label}
+      <span>{label}</span>
       {onRemove && (
-        <button onClick={onRemove} className="ml-0.5 rounded-full p-0.5 hover:bg-slate-300">
+        <button
+          onClick={onRemove}
+          className="ml-0.5 rounded-full p-0.5 text-slate-400 hover:bg-slate-300 hover:text-slate-700 transition-colors"
+        >
           <X size={12} />
         </button>
       )}

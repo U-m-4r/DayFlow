@@ -1,18 +1,19 @@
 /**
- * Dayflow — Route-level UI with top nav, all screens per §7, and the §8 motion system.
- * Landing page = Employees grid (§7.2). No separate dashboard.
+ * Dayflow — Premium Modern SaaS HR Management System.
+ * Landing page = Employees Hub & Analytics Bento Grid.
  * Top nav: Company Logo · Employees · Attendance · Time Off · Notification Bell · Avatar menu.
  */
-import React, { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FormEvent, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Bell, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Edit2, Eye, EyeOff, FileText,
-  LogOut, Menu, Plane, Plus, Save, Search, User as UserIcon, Users, Wallet, X
+  LogOut, Menu, Plane, Plus, Save, Search, User as UserIcon, Users, Wallet, X,
+  Building2, MapPin, Mail, Phone, Calendar, ArrowUpRight, Sparkles, Filter, CheckCircle2, Shield
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { api } from './api';
-import { AuthProvider, useAuth, User } from './auth';
+import { AuthProvider, useAuth } from './auth';
 import { AnimatedPage, MotionProvider, Stagger, StaggerItem, motion } from './components/motion';
 import { Button, Chip, Empty, Field, Modal, Select, Skeleton, Status, StatusDot, TextArea, ToastProvider, useToast } from './components/ui';
 
@@ -54,21 +55,22 @@ function NotificationBell() {
   const typeLabel: Record<string, string> = {
     LEAVEUPDATE: 'Leave Update',
     ATTENDANCEALERT: 'Attendance',
-    GENERAL: 'Info',
+    GENERAL: 'General',
   };
 
   return (
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-slate-100 text-muted hover:text-ink transition-colors"
+        className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200/80 bg-white/80 text-slate-600 shadow-sm hover:border-primary/40 hover:text-primary hover:bg-white transition-all"
+        title="Notifications"
       >
         <Bell size={18} />
         {unread > 0 && (
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white"
+            className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 px-1 items-center justify-center rounded-full bg-danger text-[10px] font-extrabold text-white shadow-sm ring-2 ring-white"
           >
             {unread > 9 ? '9+' : unread}
           </motion.span>
@@ -78,37 +80,57 @@ function NotificationBell() {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            initial={{ opacity: 0, y: 10, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.95 }}
-            className="surface-2 absolute right-0 top-12 w-80 z-50"
+            exit={{ opacity: 0, y: 10, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+            className="glass absolute right-0 top-13 w-84 sm:w-96 z-50 p-2 shadow-2xl border border-white/80"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-              <p className="text-sm font-bold">Notifications</p>
+            <div className="flex items-center justify-between border-b border-slate-100/90 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2 w-2 rounded-full bg-primary" />
+                <p className="text-sm font-bold text-ink">Notifications</p>
+                {unread > 0 && (
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+                    {unread} new
+                  </span>
+                )}
+              </div>
               {unread > 0 && (
                 <button
                   onClick={() => markAllRead.mutate()}
-                  className="text-xs font-medium text-primary hover:underline"
+                  className="text-xs font-semibold text-primary hover:underline"
                 >
                   Mark all read
                 </button>
               )}
             </div>
-            <div className="max-h-80 overflow-y-auto">
+            <div className="max-h-84 overflow-y-auto scrollbar-thin divide-y divide-slate-50">
               {(notifications as any[]).length === 0 ? (
-                <p className="p-6 text-center text-sm text-muted">No notifications yet.</p>
+                <div className="p-8 text-center text-slate-400">
+                  <Bell size={24} className="mx-auto mb-2 text-slate-300" />
+                  <p className="text-sm font-medium">All caught up! No notifications.</p>
+                </div>
               ) : (
                 (notifications as any[]).map((n: any) => (
                   <div
                     key={n.id}
                     onClick={() => { if (!n.isRead) markRead.mutate(n.id); }}
-                    className={`flex items-start gap-3 cursor-pointer px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors ${!n.isRead ? 'bg-primary/5' : ''}`}
+                    className={`flex items-start gap-3 cursor-pointer p-3.5 rounded-xl transition-all hover:bg-slate-50/80 ${
+                      !n.isRead ? 'bg-teal-50/50' : ''
+                    }`}
                   >
-                    <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${!n.isRead ? 'bg-primary' : 'bg-transparent'}`} />
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-muted uppercase tracking-wider">{typeLabel[n.type] || n.type}</p>
-                      <p className="mt-0.5 text-sm">{n.message}</p>
-                      <p className="mt-1 text-xs text-muted">{new Date(n.createdAt).toLocaleString()}</p>
+                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${!n.isRead ? 'bg-primary ring-4 ring-primary/20' : 'bg-slate-200'}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                          {typeLabel[n.type] || n.type}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-ink font-medium leading-relaxed">{n.message}</p>
                     </div>
                   </div>
                 ))
@@ -160,85 +182,119 @@ function TopNav() {
   ];
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur-lg">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 lg:px-8">
-        {/* Logo */}
-        <Link to="/employees" className="mr-4 flex items-center gap-2">
-          {user?.companyLogo && (
-            <img src={`http://localhost:4000${user.companyLogo}`} alt="" className="h-8 w-8 rounded-lg object-cover" />
-          )}
-          <span className="font-display text-xl text-ink">{user?.companyName || 'dayflow.'}</span>
+    <header className="sticky top-0 z-30 border-b border-slate-200/60 bg-white/80 backdrop-blur-xl shadow-sm shadow-slate-100/50">
+      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5 lg:px-8">
+        {/* Brand Logo */}
+        <Link to="/employees" className="mr-2 flex items-center gap-2.5 group">
+          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-primary text-white shadow-md shadow-primary/25 group-hover:scale-105 transition-transform">
+            {user?.companyLogo ? (
+              <img src={`http://localhost:4000${user.companyLogo}`} alt="" className="h-full w-full rounded-2xl object-cover" />
+            ) : (
+              <Sparkles size={18} className="text-white" />
+            )}
+          </div>
+          <div>
+            <span className="font-display text-2xl tracking-tight text-ink font-bold leading-none block">
+              {user?.companyName || 'dayflow.'}
+            </span>
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-primary/80 block">Workspace</span>
+          </div>
         </Link>
 
-        {/* Desktop nav links */}
-        <nav className="hidden items-center gap-1 md:flex">
-          {navLinks.map(({ to, label }) => (
+        {/* Desktop Nav Links */}
+        <nav className="hidden items-center gap-1 md:flex ml-4 pl-4 border-l border-slate-200/60">
+          {navLinks.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `tab ${isActive ? 'tab-active' : ''}`
+                `flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all duration-150 ${
+                  isActive
+                    ? 'bg-primary-50 text-primary shadow-xs border border-primary/20'
+                    : 'text-slate-500 hover:text-ink hover:bg-slate-50'
+                }`
               }
             >
-              {label}
+              <Icon size={16} />
+              <span>{label}</span>
             </NavLink>
           ))}
         </nav>
 
+        {/* Right Section */}
         <div className="ml-auto flex items-center gap-3">
-          {/* Check In/Out widget */}
+          {/* Check In/Out pill */}
           <div className="hidden items-center gap-2 sm:flex">
             {!hasCheckedIn ? (
-              <Button size="sm" onClick={() => checkIn.mutate()} disabled={checkIn.isPending}>
-                Check In →
+              <Button size="sm" onClick={() => checkIn.mutate()} disabled={checkIn.isPending} className="shadow-xs">
+                <Clock3 size={14} />
+                <span>Check In →</span>
               </Button>
             ) : !hasCheckedOut ? (
-              <div className="flex items-center gap-2">
-                <StatusDot status="PRESENT" />
-                <span className="text-xs font-bold text-muted">Since {checkedInTime}</span>
-                <Button size="sm" variant="quiet" onClick={() => checkOut.mutate()} disabled={checkOut.isPending}>
+              <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 shadow-xs">
+                <StatusDot status="PRESENT" size="sm" pulse />
+                <span className="text-xs font-bold text-emerald-800">Since {checkedInTime}</span>
+                <Button size="sm" variant="quiet" onClick={() => checkOut.mutate()} disabled={checkOut.isPending} className="!py-1 !px-2.5 !text-xs !bg-white hover:!bg-emerald-100/60 text-emerald-900 border border-emerald-200">
                   Check Out →
                 </Button>
               </div>
             ) : (
-              <span className="flex items-center gap-2 text-xs font-bold text-success">
-                <Check size={14} /> Done for today
-              </span>
+              <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600">
+                <CheckCircle2 size={15} className="text-emerald-600" />
+                <span>Completed today</span>
+              </div>
             )}
           </div>
 
-          {/* Notification Bell */}
+          {/* Notifications */}
           <NotificationBell />
 
-          {/* Avatar dropdown */}
+          {/* User Avatar Menu */}
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-primary text-sm font-bold text-white"
+              className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-primary text-sm font-extrabold text-white shadow-md shadow-primary/20 ring-2 ring-white hover:scale-105 transition-transform"
             >
               {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
               <span className="absolute -bottom-0.5 -right-0.5">
-                <StatusDot status={hasCheckedIn && !hasCheckedOut ? 'PRESENT' : 'ABSENT'} size="sm" />
+                <StatusDot status={hasCheckedIn && !hasCheckedOut ? 'PRESENT' : 'ABSENT'} size="sm" pulse={hasCheckedIn && !hasCheckedOut} />
               </span>
             </button>
 
             <AnimatePresence>
               {menuOpen && (
                 <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  initial={{ opacity: 0, y: 10, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  className="surface-2 absolute right-0 top-12 w-56 p-2"
+                  exit={{ opacity: 0, y: 10, scale: 0.96 }}
+                  transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                  className="glass absolute right-0 top-13 w-64 p-2 shadow-2xl border border-white/80 z-50"
                 >
-                  <div className="border-b border-slate-100 px-3 py-2 mb-1">
-                    <p className="font-bold text-sm">{user?.fullName}</p>
-                    <p className="text-xs text-muted">{user?.email}</p>
+                  <div className="border-b border-slate-100/90 px-3.5 py-3 mb-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-sm text-ink truncate">{user?.fullName}</p>
+                      {user?.role === 'ADMIN' && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-extrabold text-primary uppercase">
+                          Admin
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 truncate mt-0.5">{user?.email}</p>
                   </div>
-                  <NavLink to="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-slate-50">
-                    <UserIcon size={16} /> My Profile
+                  <NavLink
+                    to="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors"
+                  >
+                    <UserIcon size={16} />
+                    <span>My Profile</span>
                   </NavLink>
-                  <button onClick={() => { logout(); setMenuOpen(false); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-danger hover:bg-red-50">
-                    <LogOut size={16} /> Log Out
+                  <button
+                    onClick={() => { logout(); setMenuOpen(false); }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-danger hover:bg-red-50 transition-colors mt-1"
+                  >
+                    <LogOut size={16} />
+                    <span>Log Out</span>
                   </button>
                 </motion.div>
               )}
@@ -246,22 +302,25 @@ function TopNav() {
           </div>
 
           {/* Mobile hamburger */}
-          <button className="md:hidden rounded-lg p-1.5 hover:bg-slate-100" onClick={() => setMobileOpen(!mobileOpen)}>
+          <button
+            className="md:hidden rounded-xl p-2 text-slate-600 hover:bg-slate-100"
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
             <Menu size={20} />
           </button>
         </div>
       </div>
 
-      {/* Mobile nav */}
+      {/* Mobile nav drawer */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.nav
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-t border-slate-100 md:hidden"
+            className="overflow-hidden border-t border-slate-100 bg-white/95 md:hidden"
           >
-            <div className="flex flex-col gap-1 p-3">
+            <div className="flex flex-col gap-1 p-4">
               {navLinks.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
@@ -269,19 +328,22 @@ function TopNav() {
                   onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold ${
-                      isActive ? 'bg-primary/5 text-primary' : 'text-muted hover:bg-slate-50'
+                      isActive ? 'bg-primary-50 text-primary border border-primary/20' : 'text-slate-600 hover:bg-slate-50'
                     }`
                   }
                 >
                   <Icon size={18} /> {label}
                 </NavLink>
               ))}
-              {/* Mobile check in/out */}
-              <div className="mt-2 flex items-center gap-2 px-4 sm:hidden">
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 sm:hidden">
                 {!hasCheckedIn ? (
-                  <Button size="sm" className="w-full" onClick={() => { checkIn.mutate(); setMobileOpen(false); }}>Check In →</Button>
+                  <Button size="sm" className="w-full" onClick={() => { checkIn.mutate(); setMobileOpen(false); }}>
+                    <Clock3 size={14} /> Check In →
+                  </Button>
                 ) : !hasCheckedOut ? (
-                  <Button size="sm" variant="quiet" className="w-full" onClick={() => { checkOut.mutate(); setMobileOpen(false); }}>Check Out →</Button>
+                  <Button size="sm" variant="quiet" className="w-full" onClick={() => { checkOut.mutate(); setMobileOpen(false); }}>
+                    Check Out →
+                  </Button>
                 ) : null}
               </div>
             </div>
@@ -295,12 +357,12 @@ function TopNav() {
 // ── Shell wraps authenticated pages ─────────────────────────────────────────
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <TopNav />
       <AnimatedPage>
-        <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+        <main className="mx-auto max-w-7xl w-full px-4 py-8 lg:px-8 flex-1">
           {children}
-        </div>
+        </main>
       </AnimatedPage>
     </div>
   );
@@ -334,40 +396,78 @@ function SignIn() {
   }
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="hidden bg-ink p-16 text-white lg:flex lg:flex-col lg:justify-center">
-        <p className="font-display text-3xl">dayflow.</p>
-        <h1 className="mt-12 max-w-md font-display text-6xl leading-[0.95] tracking-tight">
-          Every workday, perfectly aligned.
-        </h1>
-        <p className="mt-6 max-w-sm text-lg text-slate-400">
-          Premium HR management for teams that care about their people.
-        </p>
+    <div className="grid min-h-screen lg:grid-cols-2 bg-gradient-auth">
+      <div className="hidden bg-slate-900 p-16 text-white lg:flex lg:flex-col lg:justify-between relative overflow-hidden">
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-teal-400/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-primary text-white shadow-lg shadow-primary/40">
+            <Sparkles size={20} />
+          </div>
+          <span className="font-display text-3xl tracking-tight">dayflow.</span>
+        </div>
+
+        <div className="relative z-10 my-auto py-12">
+          <div className="inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-4 py-1.5 text-xs font-bold text-teal-300 backdrop-blur-md mb-6">
+            <Sparkles size={14} /> Modern HR & Team Workspace
+          </div>
+          <h1 className="font-display text-6xl leading-[0.95] tracking-tight">
+            Every workday, <br />
+            <span className="bg-gradient-to-r from-teal-300 via-teal-100 to-white bg-clip-text text-transparent">
+              perfectly aligned.
+            </span>
+          </h1>
+          <p className="mt-6 max-w-md text-base text-slate-300 leading-relaxed">
+            Streamlined attendance, instant leave approvals, automated salary structure, and employee directory in one unified hub.
+          </p>
+        </div>
+
+        <div className="relative z-10 text-xs text-slate-400 font-medium flex items-center gap-4">
+          <span>© {new Date().getFullYear()} Dayflow Inc.</span>
+          <span>·</span>
+          <span>Local-First Workspace</span>
+        </div>
       </div>
-      <main className="flex items-center justify-center bg-gradient-auth p-6">
-        <form onSubmit={submit} className="surface-2 w-full max-w-md p-10">
-          <p className="font-bold text-primary tracking-widest text-xs">WELCOME BACK</p>
-          <h1 className="mt-3 font-display text-5xl">Sign in</h1>
-          <div className="mt-10 space-y-5">
-            <Field label="Login ID or Email" name="identifier" required autoFocus />
+
+      <main className="flex items-center justify-center p-6 sm:p-12">
+        <form onSubmit={submit} className="surface-2 w-full max-w-md p-8 sm:p-10 shadow-2xl border border-white/80">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <p className="font-extrabold text-primary tracking-widest text-[11px] uppercase">Welcome Back</p>
+          </div>
+          <h1 className="font-display text-4xl text-ink">Sign in</h1>
+          <p className="text-xs text-slate-500 mt-1">Enter your company login credentials below.</p>
+
+          <div className="mt-8 space-y-4">
+            <Field label="Login ID or Email" name="identifier" required autoFocus placeholder="e.g. admin@dayflow.local" />
             <div className="relative">
-              <Field label="Password" name="password" type={showPw ? 'text' : 'password'} required minLength={8} />
+              <Field label="Password" name="password" type={showPw ? 'text' : 'password'} required minLength={8} placeholder="••••••••" />
               <button
                 type="button"
                 onClick={() => setShowPw(!showPw)}
-                className="absolute right-3 top-9 text-muted hover:text-ink"
+                className="absolute right-3.5 top-9 text-slate-400 hover:text-ink transition-colors"
               >
-                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            {error && <p className="text-sm font-medium text-danger">{error}</p>}
-            <Button className="w-full" disabled={loading}>
-              {loading ? 'Signing in…' : 'Enter Dayflow'}
+            {error && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-danger flex items-center gap-2">
+                <span>{error}</span>
+              </div>
+            )}
+            <Button className="w-full mt-2" disabled={loading}>
+              {loading ? 'Signing in…' : 'Enter Dayflow →'}
             </Button>
           </div>
-          <p className="mt-6 text-sm text-muted">
-            New here? <Link to="/signup" className="font-bold text-primary hover:underline">Register your company</Link>
-          </p>
+          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-500">
+              Need a company workspace?{' '}
+              <Link to="/signup" className="font-bold text-primary hover:underline">
+                Register your company
+              </Link>
+            </p>
+          </div>
         </form>
       </main>
     </div>
@@ -397,35 +497,41 @@ function SignUp() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-auth p-6 flex items-center justify-center">
-      <form onSubmit={submit} className="surface-2 w-full max-w-xl p-10">
-        <Link to="/" className="font-display text-3xl text-ink">dayflow.</Link>
-        <h1 className="mt-6 font-display text-4xl">Register your company</h1>
-        <p className="mt-2 text-sm text-muted">Set up your HR workspace in under a minute.</p>
-        <div className="mt-8 grid gap-5 sm:grid-cols-2">
-          <Field label="Company Name" name="companyName" required className="sm:col-span-2" />
+    <main className="min-h-screen bg-gradient-auth p-6 sm:p-12 flex items-center justify-center">
+      <form onSubmit={submit} className="surface-2 w-full max-w-xl p-8 sm:p-10 shadow-2xl border border-white/80">
+        <div className="flex items-center justify-between">
+          <Link to="/" className="font-display text-2xl text-ink font-bold">dayflow.</Link>
+          <span className="rounded-full bg-teal-50 border border-teal-200 px-3 py-1 text-[11px] font-bold text-primary">New Organization</span>
+        </div>
+        <h1 className="mt-4 font-display text-3xl text-ink">Register your company</h1>
+        <p className="mt-1 text-xs text-slate-500">Set up your HR workspace in under a minute.</p>
+        
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <Field label="Company Name" name="companyName" required className="sm:col-span-2" placeholder="Acme Corp" />
           <label className="block sm:col-span-2">
-            <span className="label">Company Logo</span>
+            <span className="label block">Company Logo</span>
             <input className="field" name="logo" type="file" accept="image/jpeg,image/png" />
           </label>
-          <Field label="Your Full Name" name="fullName" required />
-          <Field label="Email" name="email" type="email" required />
-          <Field label="Phone" name="phone" type="tel" required />
-          <div /> {/* spacer */}
+          <Field label="Your Full Name" name="fullName" required placeholder="Jane Doe" />
+          <Field label="Email" name="email" type="email" required placeholder="jane@acme.com" />
+          <Field label="Phone" name="phone" type="tel" required placeholder="+1 555-0100" />
+          <div className="hidden sm:block" />
           <div className="relative">
-            <Field label="Password" name="password" type={showPw ? 'text' : 'password'} required minLength={8} />
-            <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-9 text-muted hover:text-ink">
-              {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+            <Field label="Password" name="password" type={showPw ? 'text' : 'password'} required minLength={8} placeholder="Min 8 chars" />
+            <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3.5 top-9 text-slate-400 hover:text-ink">
+              {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-          <Field label="Confirm Password" name="confirmPassword" type="password" required minLength={8} />
+          <Field label="Confirm Password" name="confirmPassword" type="password" required minLength={8} placeholder="Re-enter password" />
         </div>
-        {error && <p className="mt-4 text-sm font-medium text-danger">{error}</p>}
-        {message && <p className="mt-4 text-sm font-medium text-success">{message}</p>}
+        
+        {error && <p className="mt-4 text-xs font-semibold text-danger p-3 rounded-xl bg-red-50 border border-red-200">{error}</p>}
+        {message && <p className="mt-4 text-xs font-semibold text-success p-3 rounded-xl bg-emerald-50 border border-emerald-200">{message}</p>}
+        
         <Button className="mt-6 w-full" disabled={loading}>
-          {loading ? 'Creating…' : 'Create Company'}
+          {loading ? 'Creating…' : 'Create Company Workspace →'}
         </Button>
-        <p className="mt-4 text-sm text-center text-muted">
+        <p className="mt-4 text-xs text-center text-slate-500">
           Already registered? <Link to="/" className="font-bold text-primary hover:underline">Sign in</Link>
         </p>
       </form>
@@ -445,19 +551,19 @@ function VerifyEmail() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-auth p-6">
-      <div className="surface-2 max-w-md p-10 text-center">
+      <div className="surface-2 max-w-md p-10 text-center shadow-2xl">
         <h1 className="font-display text-3xl">Email Verification</h1>
-        {isLoading && <p className="mt-4 text-muted">Verifying…</p>}
-        {data && <p className="mt-4 text-success font-bold">{data.message}</p>}
-        {error && <p className="mt-4 text-danger">{(error as any)?.response?.data?.message || 'Verification failed'}</p>}
-        <Link to="/" className="mt-6 inline-block font-bold text-primary hover:underline">← Back to Sign In</Link>
+        {isLoading && <p className="mt-4 text-sm text-slate-400">Verifying your token…</p>}
+        {data && <p className="mt-4 text-sm text-success font-bold">{data.message}</p>}
+        {error && <p className="mt-4 text-sm text-danger font-semibold">{(error as any)?.response?.data?.message || 'Verification failed'}</p>}
+        <Link to="/" className="mt-6 inline-block font-bold text-primary hover:underline text-sm">← Back to Sign In</Link>
       </div>
     </main>
   );
 }
 
 function ChangePassword() {
-  const { user, updateUser, logout } = useAuth();
+  const { user, updateUser } = useAuth();
   const go = useNavigate();
   const [error, setError] = useState('');
   const { toast } = useToast();
@@ -474,7 +580,7 @@ function ChangePassword() {
         confirmPassword: String(form.get('confirmPassword')),
       });
       updateUser({ mustChangePassword: false });
-      toast('Password changed successfully');
+      toast('Password updated successfully');
       go('/employees');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Unable to change password');
@@ -483,22 +589,22 @@ function ChangePassword() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-auth p-6">
-      <form onSubmit={submit} className="surface-2 w-full max-w-md p-10">
+      <form onSubmit={submit} className="surface-2 w-full max-w-md p-10 shadow-2xl">
         <h1 className="font-display text-3xl">
           {user.mustChangePassword ? 'Set your password' : 'Change password'}
         </h1>
         {user.mustChangePassword && (
-          <p className="mt-2 text-sm text-muted">You must set a new password before continuing.</p>
+          <p className="mt-2 text-xs text-slate-500">First-time login requirement: please choose a secure password.</p>
         )}
-        <div className="mt-8 space-y-4">
+        <div className="mt-6 space-y-4">
           {!user.mustChangePassword && (
             <Field label="Current Password" name="currentPassword" type="password" required />
           )}
           <Field label="New Password" name="newPassword" type="password" required minLength={8} />
           <Field label="Confirm New Password" name="confirmPassword" type="password" required minLength={8} />
-          <p className="text-xs text-muted">Min 8 characters, 1 number, 1 symbol</p>
-          {error && <p className="text-sm font-medium text-danger">{error}</p>}
-          <Button className="w-full">Update Password</Button>
+          <p className="text-[11px] text-slate-400 font-medium">Requirement: Min 8 chars, at least 1 number & 1 symbol</p>
+          {error && <p className="text-xs font-semibold text-danger p-2.5 rounded-lg bg-red-50">{error}</p>}
+          <Button className="w-full mt-2">Update Password</Button>
         </div>
       </form>
     </main>
@@ -506,19 +612,21 @@ function ChangePassword() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EMPLOYEES GRID (§7.2) — Landing page
+// EMPLOYEES GRID & DASHBOARD HUB (§7.2)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function EmployeesGrid() {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
+  const [selectedDept, setSelectedDept] = useState('ALL');
+  const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [showCreate, setShowCreate] = useState(false);
   const qc = useQueryClient();
   const { toast } = useToast();
 
   const { data, isLoading } = useQuery({
     queryKey: ['employees', search],
-    queryFn: () => api.get(`/users?search=${encodeURIComponent(search)}&limit=50`).then(r => r.data),
+    queryFn: () => api.get(`/users?search=${encodeURIComponent(search)}&limit=100`).then(r => r.data),
   });
 
   const createEmployee = useMutation({
@@ -526,61 +634,263 @@ function EmployeesGrid() {
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['employees'] });
       setShowCreate(false);
-      toast(`${res.data.fullName} added. Credentials sent to their email.`);
+      toast(`${res.data.fullName} added! Credentials sent to their email.`);
     },
   });
 
+  const allItems = data?.items || [];
+
+  // Extract unique departments
+  const departments = useMemo(() => {
+    const set = new Set<string>();
+    allItems.forEach((emp: any) => {
+      if (emp.department) set.add(emp.department);
+    });
+    return Array.from(set);
+  }, [allItems]);
+
+  // Filtered employees list
+  const filteredEmployees = useMemo(() => {
+    return allItems.filter((emp: any) => {
+      const matchDept = selectedDept === 'ALL' || emp.department === selectedDept;
+      const matchStatus = selectedStatus === 'ALL' || emp.todayStatus === selectedStatus;
+      return matchDept && matchStatus;
+    });
+  }, [allItems, selectedDept, selectedStatus]);
+
+  // Compute KPI metrics
+  const stats = useMemo(() => {
+    const total = allItems.length;
+    const present = allItems.filter((e: any) => e.todayStatus === 'PRESENT').length;
+    const onLeave = allItems.filter((e: any) => e.todayStatus === 'ON_LEAVE').length;
+    const absent = total - present - onLeave;
+    const attendanceRate = total > 0 ? Math.round((present / total) * 100) : 0;
+
+    return { total, present, onLeave, absent, attendanceRate, deptCount: departments.length };
+  }, [allItems, departments]);
+
   return (
     <Shell>
-      <div className="flex flex-wrap items-center gap-4">
-        <h1 className="page-title">Employees</h1>
-        <div className="relative ml-auto">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            className="field !mt-0 pl-9 w-64"
-            placeholder="Search by name, email, or ID…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+      {/* Header & New Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="section-title">Directory & Live Overview</span>
+          </div>
+          <h1 className="page-title mt-1">Employees Hub</h1>
         </div>
+        
         {user?.role === 'ADMIN' && (
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus size={16} /> New
+          <Button onClick={() => setShowCreate(true)} className="self-start sm:self-auto">
+            <Plus size={16} />
+            <span>Add New Employee</span>
           </Button>
         )}
       </div>
 
-      {/* Employee cards grid */}
+      {/* ── Visual KPI Bento Grid ─────────────────────────────────── */}
+      <Stagger className="mt-8 grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {/* Card 1: Total Team */}
+        <StaggerItem className="bento-stat bg-white/90">
+          <div className="flex items-center justify-between">
+            <span className="section-title">Total Team</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-teal-50 text-primary border border-teal-100">
+              <Users size={18} />
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="font-display text-4xl text-ink font-bold">{stats.total}</p>
+            <p className="text-xs text-slate-500 mt-1 font-medium flex items-center gap-1">
+              <span>Across</span>
+              <span className="font-bold text-ink">{stats.deptCount} departments</span>
+            </p>
+          </div>
+        </StaggerItem>
+
+        {/* Card 2: Present Today */}
+        <StaggerItem className="bento-stat bg-white/90">
+          <div className="flex items-center justify-between">
+            <span className="section-title">Present Today</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+              <CheckCircle2 size={18} />
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="flex items-baseline gap-2">
+              <p className="font-display text-4xl text-emerald-600 font-bold">{stats.present}</p>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                {stats.attendanceRate}%
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1 font-medium">Checked in today</p>
+          </div>
+        </StaggerItem>
+
+        {/* Card 3: On Leave */}
+        <StaggerItem className="bento-stat bg-white/90">
+          <div className="flex items-center justify-between">
+            <span className="section-title">On Time Off</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-50 text-warning border border-amber-100">
+              <Plane size={18} />
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="font-display text-4xl text-warning font-bold">{stats.onLeave}</p>
+            <p className="text-xs text-slate-500 mt-1 font-medium">Approved leave today</p>
+          </div>
+        </StaggerItem>
+
+        {/* Card 4: Departments */}
+        <StaggerItem className="bento-stat bg-white/90">
+          <div className="flex items-center justify-between">
+            <span className="section-title">Active Teams</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-sky-50 text-sky-600 border border-sky-100">
+              <Building2 size={18} />
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="font-display text-4xl text-sky-600 font-bold">{stats.deptCount}</p>
+            <p className="text-xs text-slate-500 mt-1 font-medium">Functional units</p>
+          </div>
+        </StaggerItem>
+      </Stagger>
+
+      {/* ── Modern Search & Interactive Filter Bar ────────────────── */}
+      <div className="surface mt-8 p-4 sm:p-5">
+        <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+          {/* Search Input */}
+          <div className="relative flex-1 max-w-md">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              className="field !mt-0 pl-10 pr-9 py-2.5 text-sm bg-white"
+              placeholder="Search by name, email, or Login ID…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-ink"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Status Filter Badges */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mr-1 hidden sm:inline">Status:</span>
+            {[
+              { id: 'ALL', label: 'All', count: stats.total },
+              { id: 'PRESENT', label: 'Present', count: stats.present },
+              { id: 'ON_LEAVE', label: 'On Leave', count: stats.onLeave },
+              { id: 'ABSENT', label: 'Absent', count: stats.absent },
+            ].map(s => (
+              <button
+                key={s.id}
+                onClick={() => setSelectedStatus(s.id)}
+                className={`filter-pill ${selectedStatus === s.id ? 'filter-pill-active' : ''}`}
+              >
+                <span>{s.label}</span>
+                <span className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                  selectedStatus === s.id ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {s.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Department Filter Pills */}
+        {departments.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400 shrink-0">Department:</span>
+            <button
+              onClick={() => setSelectedDept('ALL')}
+              className={`filter-pill shrink-0 ${selectedDept === 'ALL' ? 'filter-pill-active' : ''}`}
+            >
+              All Departments
+            </button>
+            {departments.map(dept => (
+              <button
+                key={dept}
+                onClick={() => setSelectedDept(dept)}
+                className={`filter-pill shrink-0 ${selectedDept === dept ? 'filter-pill-active' : ''}`}
+              >
+                {dept}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Employee Cards Grid ───────────────────────────────────── */}
       {isLoading ? (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-28" />)}
+          {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-44" />)}
         </div>
-      ) : data?.items?.length ? (
-        <Stagger className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {data.items.map((emp: any) => (
+      ) : filteredEmployees.length ? (
+        <Stagger className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredEmployees.map((emp: any) => (
             <StaggerItem key={emp.id}>
-              <Link to={`/employees/${emp.id}`}>
+              <Link to={`/employees/${emp.id}`} className="block h-full group">
                 <motion.div
-                  whileHover={{ y: -2 }}
-                  className="surface relative flex items-center gap-4 p-5 transition-shadow hover:shadow-surface-2"
+                  whileHover={{ y: -3 }}
+                  className="surface relative flex flex-col justify-between h-full p-6 bg-white/95 border border-slate-200/70 group-hover:border-primary/40 group-hover:shadow-glass-glow transition-all"
                 >
-                  {/* Status dot in top-right */}
-                  <span className="absolute right-4 top-4">
-                    <StatusDot status={emp.todayStatus} />
-                  </span>
+                  {/* Top row: Avatar + Status + ID */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="relative">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-primary text-xl font-bold text-white shadow-md shadow-primary/20 ring-2 ring-white">
+                        {emp.profilePicture ? (
+                          <img src={`http://localhost:4000${emp.profilePicture}`} alt="" className="h-full w-full rounded-2xl object-cover" />
+                        ) : (
+                          emp.fullName?.charAt(0)?.toUpperCase() || '?'
+                        )}
+                      </div>
+                      <span className="absolute -bottom-1 -right-1">
+                        <StatusDot status={emp.todayStatus} size="md" pulse={emp.todayStatus === 'PRESENT'} />
+                      </span>
+                    </div>
 
-                  {/* Avatar */}
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-primary text-lg font-bold text-white">
-                    {emp.profilePicture ? (
-                      <img src={`http://localhost:4000${emp.profilePicture}`} alt="" className="h-full w-full rounded-2xl object-cover" />
-                    ) : (
-                      emp.fullName?.charAt(0)?.toUpperCase() || '?'
+                    <div className="text-right">
+                      <span className="inline-block font-mono text-[11px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200/60">
+                        {emp.loginId}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Body: Full name, designation, department */}
+                  <div className="mt-4 min-w-0">
+                    <h3 className="truncate font-bold text-base text-ink group-hover:text-primary transition-colors flex items-center justify-between">
+                      <span>{emp.fullName}</span>
+                      <ArrowUpRight size={15} className="text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                    </h3>
+                    <p className="truncate text-xs font-semibold text-slate-600 mt-0.5">
+                      {emp.designation || 'Team Member'}
+                    </p>
+                    
+                    {emp.department && (
+                      <span className="inline-flex items-center gap-1 mt-2.5 rounded-lg bg-teal-50 px-2.5 py-1 text-[11px] font-bold text-primary border border-teal-100/80">
+                        <Building2 size={11} /> {emp.department}
+                      </span>
                     )}
                   </div>
 
-                  <div className="min-w-0">
-                    <p className="truncate font-bold">{emp.fullName}</p>
-                    <p className="truncate text-sm text-muted">{emp.designation || emp.department || emp.email}</p>
+                  {/* Bottom: Contact micro-tags */}
+                  <div className="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400 font-medium">
+                    <span className="truncate max-w-[180px] flex items-center gap-1.5">
+                      <Mail size={12} className="shrink-0" />
+                      <span className="truncate">{emp.email}</span>
+                    </span>
+                    {emp.location && (
+                      <span className="truncate flex items-center gap-1 shrink-0">
+                        <MapPin size={12} />
+                        <span>{emp.location.split(',')[0]}</span>
+                      </span>
+                    )}
                   </div>
                 </motion.div>
               </Link>
@@ -589,12 +899,23 @@ function EmployeesGrid() {
         </Stagger>
       ) : (
         <div className="mt-8">
-          <Empty icon={<Users size={40} />}>No employees found.</Empty>
+          <Empty
+            icon={<Users size={36} />}
+            action={
+              (search || selectedDept !== 'ALL' || selectedStatus !== 'ALL') ? (
+                <Button size="sm" variant="secondary" onClick={() => { setSearch(''); setSelectedDept('ALL'); setSelectedStatus('ALL'); }}>
+                  Clear Filters
+                </Button>
+              ) : undefined
+            }
+          >
+            No employees match your search or filter criteria.
+          </Empty>
         </div>
       )}
 
-      {/* Create employee modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Add New Employee">
+      {/* ── Create Employee Modal ──────────────────────────────────── */}
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Onboard New Employee">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -603,29 +924,44 @@ function EmployeesGrid() {
           }}
           className="space-y-4"
         >
-          <Field label="Full Name" name="fullName" required />
-          <Field label="Email" name="email" type="email" required />
-          <Field label="Phone" name="phone" type="tel" required />
+          <p className="text-xs text-slate-500 mb-2">
+            Add employee credentials. The system will auto-generate their company Login ID and send temporary credentials.
+          </p>
+
+          <Field label="Full Name" name="fullName" required placeholder="e.g. Avery Morgan" />
+          
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Department" name="department" />
-            <Field label="Job Position" name="designation" />
+            <Field label="Company Email" name="email" type="email" required placeholder="avery@company.com" />
+            <Field label="Phone" name="phone" type="tel" required placeholder="+1 555-0199" />
           </div>
-          <Field
-            label="Date of Joining"
-            name="dateOfJoining"
-            type="date"
-            required
-            defaultValue={new Date().toISOString().slice(0, 10)}
-            min="1970-01-01"
-            max="2099-12-31"
-          />
-          <Field label="Location" name="location" />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Department" name="department" placeholder="e.g. Engineering" />
+            <Field label="Job Position" name="designation" placeholder="e.g. Senior Frontend Engineer" />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Date of Joining"
+              name="dateOfJoining"
+              type="date"
+              required
+              defaultValue={new Date().toISOString().slice(0, 10)}
+              min="1970-01-01"
+              max="2099-12-31"
+            />
+            <Field label="Location" name="location" placeholder="e.g. San Francisco, CA" />
+          </div>
+
           {createEmployee.isError && (
-            <p className="text-sm text-danger">{(createEmployee.error as any)?.response?.data?.message || 'Failed to create'}</p>
+            <p className="text-xs font-semibold text-danger p-3 rounded-xl bg-red-50 border border-red-200">
+              {(createEmployee.error as any)?.response?.data?.message || 'Failed to create employee'}
+            </p>
           )}
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={createEmployee.isPending}>
-              {createEmployee.isPending ? 'Creating…' : 'Create Employee'}
+
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <Button type="submit" disabled={createEmployee.isPending} className="flex-1">
+              {createEmployee.isPending ? 'Onboarding…' : 'Create Employee Profile →'}
             </Button>
             <Button type="button" variant="quiet" onClick={() => setShowCreate(false)}>Cancel</Button>
           </div>
@@ -636,7 +972,7 @@ function EmployeesGrid() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EMPLOYEE DETAIL (§7.3 — view-only for non-owner non-admin; editable for admin)
+// EMPLOYEE DETAIL (§7.3)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function EmployeeDetail() {
@@ -653,7 +989,6 @@ function EmployeeDetail() {
     enabled: !!id,
   });
 
-  // Admin can edit admin-only fields
   const saveAdminFields = useMutation({
     mutationFn: (body: any) => api.patch(`/users/${id}`, body),
     onSuccess: () => {
@@ -665,7 +1000,6 @@ function EmployeeDetail() {
   if (isLoading) return <Shell><Skeleton className="h-64" /></Shell>;
   if (!employee) return <Shell><Empty>Employee not found.</Empty></Shell>;
 
-  // If viewing own profile, redirect to /profile (editable)
   if (isOwn) return <Navigate to="/profile" />;
 
   const p = employee.profile || {};
@@ -673,30 +1007,47 @@ function EmployeeDetail() {
 
   return (
     <Shell>
-      {/* Profile header */}
-      <div className="surface p-8">
-        <div className="flex flex-wrap items-center gap-6">
-          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-primary text-2xl font-bold text-white">
-            {p.profilePictureUrl ? (
-              <img src={`http://localhost:4000${p.profilePictureUrl}`} alt="" className="h-full w-full rounded-3xl object-cover" />
-            ) : (
-              p.fullName?.charAt(0)?.toUpperCase() || '?'
-            )}
+      {/* Back breadcrumb */}
+      <Link to="/employees" className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-primary mb-6 transition-colors">
+        <ChevronLeft size={14} /> Back to Directory
+      </Link>
+
+      {/* Hero Profile Banner */}
+      <div className="surface p-6 sm:p-8 bg-white/95 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-mesh opacity-60 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 relative z-10">
+          <div className="relative">
+            <div className="flex h-22 w-22 items-center justify-center rounded-3xl bg-gradient-primary text-3xl font-extrabold text-white shadow-lg shadow-primary/25 ring-4 ring-white">
+              {p.profilePictureUrl ? (
+                <img src={`http://localhost:4000${p.profilePictureUrl}`} alt="" className="h-full w-full rounded-3xl object-cover" />
+              ) : (
+                p.fullName?.charAt(0)?.toUpperCase() || '?'
+              )}
+            </div>
           </div>
-          <div>
-            <h1 className="font-display text-3xl">{p.fullName}</h1>
-            <p className="text-muted">{p.designation} · {employee.loginId}</p>
-            <p className="text-sm text-muted">{employee.email} · {employee.phone}</p>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="font-display text-3xl text-ink font-bold">{p.fullName}</h1>
+              <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+                {employee.loginId}
+              </span>
+            </div>
+            <p className="text-sm font-semibold text-slate-600 mt-1">
+              {p.designation || 'Team Member'} {p.department && `· ${p.department}`}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-4 text-xs font-medium text-slate-500">
+              <span className="flex items-center gap-1"><Mail size={13} /> {employee.email}</span>
+              {employee.phone && <span className="flex items-center gap-1"><Phone size={13} /> {employee.phone}</span>}
+              {p.location && <span className="flex items-center gap-1"><MapPin size={13} /> {p.location}</span>}
+              {p.dateOfJoining && <span className="flex items-center gap-1"><Calendar size={13} /> Joined {new Date(p.dateOfJoining).toLocaleDateString()}</span>}
+              {managerName && <span className="flex items-center gap-1"><UserIcon size={13} /> Manager: {managerName}</span>}
+            </div>
           </div>
-        </div>
-        <div className="mt-6 flex flex-wrap gap-6 text-sm">
-          {p.department && <div><span className="section-title">Department</span><p className="mt-1 font-bold">{p.department}</p></div>}
-          {p.location && <div><span className="section-title">Location</span><p className="mt-1 font-bold">{p.location}</p></div>}
-          {p.dateOfJoining && <div><span className="section-title">Joined</span><p className="mt-1 font-bold">{new Date(p.dateOfJoining).toLocaleDateString()}</p></div>}
-          {managerName && <div><span className="section-title">Manager</span><p className="mt-1 font-bold">{managerName}</p></div>}
         </div>
 
-        {/* Admin edit fields */}
+        {/* Admin Direct Field Editing */}
         {isAdmin && (
           <form
             onSubmit={e => {
@@ -704,17 +1055,20 @@ function EmployeeDetail() {
               const f = Object.fromEntries(new FormData(e.currentTarget));
               saveAdminFields.mutate(f);
             }}
-            className="mt-6 border-t border-slate-100 pt-6"
+            className="mt-8 border-t border-slate-100 pt-6 relative z-10"
           >
-            <p className="section-title mb-4">Admin: Edit Profile Fields</p>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex items-center gap-2 mb-3">
+              <Shield size={14} className="text-primary" />
+              <p className="section-title text-primary">Admin Controls — Edit Employee Details</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Department" name="department" defaultValue={p.department || ''} />
               <Field label="Job Position" name="designation" defaultValue={p.designation || ''} />
               <Field label="Location" name="location" defaultValue={p.location || ''} />
               <Field label="Date of Joining" name="dateOfJoining" type="date" defaultValue={p.dateOfJoining?.slice(0, 10) || ''} min="1970-01-01" max="2099-12-31" />
             </div>
             {saveAdminFields.isError && (
-              <p className="mt-2 text-sm text-danger">{(saveAdminFields.error as any)?.response?.data?.message || 'Failed to update'}</p>
+              <p className="mt-2 text-xs font-semibold text-danger">{(saveAdminFields.error as any)?.response?.data?.message || 'Failed to update'}</p>
             )}
             <Button size="sm" className="mt-4" disabled={saveAdminFields.isPending}>
               <Save size={14} /> {saveAdminFields.isPending ? 'Saving…' : 'Save Changes'}
@@ -723,14 +1077,14 @@ function EmployeeDetail() {
         )}
       </div>
 
-      {/* View-only tabs (Admin sees Salary Info too) */}
+      {/* Tabs */}
       <ProfileTabs data={employee} viewOnly={!isAdmin} isAdmin={isAdmin} />
     </Shell>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// MY PROFILE (§7.3 — editable, tabbed)
+// MY PROFILE (§7.3)
 // ═══════════════════════════════════════════════════════════════════════════
 
 function MyProfile() {
@@ -750,26 +1104,34 @@ function MyProfile() {
 
   return (
     <Shell>
-      {/* Header */}
-      <div className="surface p-8">
-        <div className="flex flex-wrap items-center gap-6">
-          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-primary text-2xl font-bold text-white">
+      {/* Hero Banner */}
+      <div className="surface p-6 sm:p-8 bg-white/95 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-mesh opacity-60 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 relative z-10">
+          <div className="flex h-22 w-22 items-center justify-center rounded-3xl bg-gradient-primary text-3xl font-extrabold text-white shadow-lg shadow-primary/25 ring-4 ring-white">
             {p.profilePictureUrl ? (
               <img src={`http://localhost:4000${p.profilePictureUrl}`} alt="" className="h-full w-full rounded-3xl object-cover" />
             ) : (
               p.fullName?.charAt(0)?.toUpperCase() || '?'
             )}
           </div>
-          <div>
-            <h1 className="font-display text-3xl">{p.fullName}</h1>
-            <p className="text-muted">{p.designation || 'Team Member'} · {data.loginId}</p>
-            <p className="text-sm text-muted">{data.email} · {data.phone}</p>
-          </div>
-          <div className="ml-auto flex flex-wrap gap-6 text-sm">
-            {data.companyName && <div><span className="section-title">Company</span><p className="mt-1 font-bold">{data.companyName}</p></div>}
-            {p.department && <div><span className="section-title">Department</span><p className="mt-1 font-bold">{p.department}</p></div>}
-            {p.location && <div><span className="section-title">Location</span><p className="mt-1 font-bold">{p.location}</p></div>}
-            {managerName && <div><span className="section-title">Manager</span><p className="mt-1 font-bold">{managerName}</p></div>}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="font-display text-3xl text-ink font-bold">{p.fullName}</h1>
+              <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+                {data.loginId}
+              </span>
+            </div>
+            <p className="text-sm font-semibold text-slate-600 mt-1">
+              {p.designation || 'Team Member'} {p.department && `· ${p.department}`}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-4 text-xs font-medium text-slate-500">
+              <span className="flex items-center gap-1"><Mail size={13} /> {data.email}</span>
+              {data.phone && <span className="flex items-center gap-1"><Phone size={13} /> {data.phone}</span>}
+              {p.location && <span className="flex items-center gap-1"><MapPin size={13} /> {p.location}</span>}
+              {managerName && <span className="flex items-center gap-1"><UserIcon size={13} /> Manager: {managerName}</span>}
+            </div>
           </div>
         </div>
       </div>
@@ -779,7 +1141,7 @@ function MyProfile() {
   );
 }
 
-// ── Shared Profile Tabs component ───────────────────────────────────────────
+// ── Shared Profile Tabs Component ───────────────────────────────────────────
 function ProfileTabs({ data, viewOnly, isAdmin }: { data: any; viewOnly: boolean; isAdmin: boolean }) {
   const tabs = ['Resume', 'Private Info', ...(isAdmin ? ['Salary Info'] : []), ...(!viewOnly ? ['Security'] : [])];
   const [activeTab, setActiveTab] = useState(tabs[0]);
@@ -811,11 +1173,17 @@ function ProfileTabs({ data, viewOnly, isAdmin }: { data: any; viewOnly: boolean
   const p = data.profile || {};
 
   return (
-    <div className="mt-6">
+    <div className="mt-8">
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-slate-100">
+      <div className="flex gap-2 border-b border-slate-200/80 pb-1">
         {tabs.map(t => (
-          <button key={t} onClick={() => setActiveTab(t)} className={`tab ${activeTab === t ? 'tab-active' : ''}`}>{t}</button>
+          <button
+            key={t}
+            onClick={() => setActiveTab(t)}
+            className={`tab ${activeTab === t ? 'tab-active' : ''}`}
+          >
+            {t}
+          </button>
         ))}
       </div>
 
@@ -823,47 +1191,57 @@ function ProfileTabs({ data, viewOnly, isAdmin }: { data: any; viewOnly: boolean
         {/* ── Resume Tab ─────────────────────────────────────────────── */}
         {activeTab === 'Resume' && (
           <Stagger className="grid gap-6 lg:grid-cols-2">
-            <StaggerItem className="surface p-6 space-y-4">
-              <h3 className="section-title">About Me</h3>
-              {viewOnly ? <p className="text-sm">{p.aboutMe || '—'}</p> : (
-                <form onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); saveProfile.mutate(f); }}>
-                  <TextArea label="" name="aboutMe" defaultValue={p.aboutMe || ''} placeholder="Tell us about yourself…" />
-                  <Button size="sm" className="mt-3" disabled={saveProfile.isPending}>Save</Button>
-                </form>
-              )}
-              <h3 className="section-title pt-4">What I Love About My Job</h3>
-              {viewOnly ? <p className="text-sm">{p.whatILoveMyJob || '—'}</p> : (
-                <form onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); saveProfile.mutate(f); }}>
-                  <TextArea label="" name="whatILoveMyJob" defaultValue={p.whatILoveMyJob || ''} placeholder="What motivates you?" />
-                  <Button size="sm" className="mt-3" disabled={saveProfile.isPending}>Save</Button>
-                </form>
-              )}
-              <h3 className="section-title pt-4">Interests & Hobbies</h3>
-              {viewOnly ? <p className="text-sm">{p.interestsHobbies || '—'}</p> : (
-                <form onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); saveProfile.mutate(f); }}>
-                  <TextArea label="" name="interestsHobbies" defaultValue={p.interestsHobbies || ''} placeholder="Your interests…" />
-                  <Button size="sm" className="mt-3" disabled={saveProfile.isPending}>Save</Button>
-                </form>
-              )}
-            </StaggerItem>
-            <StaggerItem className="surface p-6 space-y-6">
+            <StaggerItem className="surface p-6 sm:p-7 space-y-5 bg-white/95">
               <div>
-                <h3 className="section-title">Skills</h3>
+                <h3 className="section-title">About Me</h3>
+                {viewOnly ? <p className="text-sm text-slate-700 mt-2 leading-relaxed">{p.aboutMe || '—'}</p> : (
+                  <form onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); saveProfile.mutate(f); }} className="mt-2">
+                    <TextArea label="" name="aboutMe" defaultValue={p.aboutMe || ''} placeholder="Tell us about yourself…" />
+                    <Button size="sm" className="mt-3" disabled={saveProfile.isPending}>Save Bio</Button>
+                  </form>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-slate-100">
+                <h3 className="section-title">What I Love About My Job</h3>
+                {viewOnly ? <p className="text-sm text-slate-700 mt-2 leading-relaxed">{p.whatILoveMyJob || '—'}</p> : (
+                  <form onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); saveProfile.mutate(f); }} className="mt-2">
+                    <TextArea label="" name="whatILoveMyJob" defaultValue={p.whatILoveMyJob || ''} placeholder="What motivates you?" />
+                    <Button size="sm" className="mt-3" disabled={saveProfile.isPending}>Save</Button>
+                  </form>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-slate-100">
+                <h3 className="section-title">Interests & Hobbies</h3>
+                {viewOnly ? <p className="text-sm text-slate-700 mt-2 leading-relaxed">{p.interestsHobbies || '—'}</p> : (
+                  <form onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); saveProfile.mutate(f); }} className="mt-2">
+                    <TextArea label="" name="interestsHobbies" defaultValue={p.interestsHobbies || ''} placeholder="Your hobbies and interests…" />
+                    <Button size="sm" className="mt-3" disabled={saveProfile.isPending}>Save</Button>
+                  </form>
+                )}
+              </div>
+            </StaggerItem>
+
+            <StaggerItem className="surface p-6 sm:p-7 space-y-6 bg-white/95">
+              <div>
+                <h3 className="section-title">Skills & Proficiencies</h3>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(data.skills || []).map((s: any) => (
                     <Chip key={s.id} label={s.name} onRemove={viewOnly ? undefined : () => removeSkill.mutate(s.id)} />
                   ))}
                   {!viewOnly && (
                     <button className="chip-add" onClick={() => {
-                      const name = prompt('Add a skill:');
+                      const name = prompt('Add a skill (e.g. React, TypeScript):');
                       if (name?.trim()) addSkill.mutate(name.trim());
                     }}>
-                      <Plus size={12} /> Add
+                      <Plus size={12} /> Add Skill
                     </button>
                   )}
                 </div>
               </div>
-              <div>
+
+              <div className="pt-4 border-t border-slate-100">
                 <h3 className="section-title">Certifications</h3>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(data.certifications || []).map((c: any) => (
@@ -871,23 +1249,25 @@ function ProfileTabs({ data, viewOnly, isAdmin }: { data: any; viewOnly: boolean
                   ))}
                   {!viewOnly && (
                     <button className="chip-add" onClick={() => {
-                      const name = prompt('Add a certification:');
+                      const name = prompt('Add certification title:');
                       if (name?.trim()) addCert.mutate(name.trim());
                     }}>
-                      <Plus size={12} /> Add
+                      <Plus size={12} /> Add Cert
                     </button>
                   )}
                 </div>
               </div>
-              <div>
+
+              <div className="pt-4 border-t border-slate-100">
                 <h3 className="section-title">Documents</h3>
                 <div className="mt-3 space-y-2">
                   {(data.documents || []).map((d: any) => (
-                    <a key={d.id} href={`http://localhost:4000${d.fileUrl}`} target="_blank" className="flex items-center gap-2 text-sm text-primary hover:underline">
-                      <FileText size={14} /> {d.docType}
+                    <a key={d.id} href={`http://localhost:4000${d.fileUrl}`} target="_blank" className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline p-2 rounded-xl bg-slate-50 border border-slate-100">
+                      <FileText size={16} />
+                      <span>{d.docType}</span>
                     </a>
                   ))}
-                  {!data.documents?.length && <p className="text-sm text-muted">No documents uploaded.</p>}
+                  {!data.documents?.length && <p className="text-xs text-slate-400">No documents uploaded.</p>}
                 </div>
               </div>
             </StaggerItem>
@@ -900,40 +1280,38 @@ function ProfileTabs({ data, viewOnly, isAdmin }: { data: any; viewOnly: boolean
             onSubmit={e => { e.preventDefault(); saveProfile.mutate(new FormData(e.currentTarget)); }}
             className="grid gap-6 lg:grid-cols-2"
           >
-            <div className="surface p-6 space-y-4">
+            <div className="surface p-6 sm:p-7 space-y-4 bg-white/95">
               <h3 className="section-title">Personal Details</h3>
               <Field label="Date of Birth" name="dateOfBirth" type="date" defaultValue={p.dateOfBirth?.slice(0, 10) || ''} disabled={viewOnly} />
               <Field label="Residing Address" name="residingAddress" defaultValue={p.residingAddress || ''} disabled={viewOnly} />
               <Field label="Nationality" name="nationality" defaultValue={p.nationality || ''} disabled={viewOnly} />
               <Field label="Personal Email" name="personalEmail" type="email" defaultValue={p.personalEmail || ''} disabled={viewOnly} />
               <Select label="Gender" name="gender" defaultValue={p.gender || ''} disabled={viewOnly}>
-                <option value="">—</option>
+                <option value="">— Select —</option>
                 <option>Male</option>
                 <option>Female</option>
                 <option>Non-binary</option>
                 <option>Prefer not to say</option>
               </Select>
               <Select label="Marital Status" name="maritalStatus" defaultValue={p.maritalStatus || ''} disabled={viewOnly}>
-                <option value="">—</option>
+                <option value="">— Select —</option>
                 <option>Single</option>
                 <option>Married</option>
                 <option>Divorced</option>
                 <option>Widowed</option>
               </Select>
-              <Field label="Date of Joining" name="dateOfJoining" type="date" defaultValue={p.dateOfJoining?.slice(0, 10) || ''} disabled />
             </div>
-            <div className="surface p-6 space-y-4">
-              <h3 className="section-title">Bank Details</h3>
+            <div className="surface p-6 sm:p-7 space-y-4 bg-white/95">
+              <h3 className="section-title">Bank & Tax Details</h3>
               <Field label="Account Number" name="bankAccountNumber" defaultValue={p.bankAccountNumber || ''} disabled={viewOnly} />
               <Field label="Bank Name" name="bankName" defaultValue={p.bankName || ''} disabled={viewOnly} />
               <Field label="IFSC Code" name="ifscCode" defaultValue={p.ifscCode || ''} disabled={viewOnly} />
               <Field label="PAN No" name="panNo" defaultValue={p.panNo || ''} disabled={viewOnly} />
               <Field label="UAN No" name="uanNo" defaultValue={p.uanNo || ''} disabled={viewOnly} />
-              <Field label="Emp Code" name="empCode" defaultValue={data.loginId || ''} disabled />
               {!viewOnly && (
-                <div className="pt-2 space-y-3">
+                <div className="pt-4 space-y-3 border-t border-slate-100">
                   <label className="block">
-                    <span className="label">Profile Photo</span>
+                    <span className="label block">Update Profile Photo</span>
                     <input className="field" name="profilePicture" type="file" accept="image/jpeg,image/png" />
                   </label>
                   <Field label="Phone" name="phone" type="tel" defaultValue={data.phone || ''} />
@@ -944,7 +1322,7 @@ function ProfileTabs({ data, viewOnly, isAdmin }: { data: any; viewOnly: boolean
           </form>
         )}
 
-        {/* ── Salary Info Tab (Admin-only, §7.6) ────────────────────── */}
+        {/* ── Salary Info Tab (Admin-only) ──────────────────────────── */}
         {activeTab === 'Salary Info' && isAdmin && (
           <SalaryInfoTab userId={data.id} salary={data.salary} />
         )}
@@ -960,7 +1338,7 @@ function ProfileTabs({ data, viewOnly, isAdmin }: { data: any; viewOnly: boolean
   );
 }
 
-// ── Salary Info Tab (§7.6) — Editable wage, components, PF, tax ─────────────
+// ── Salary Info Tab (§7.6) ──────────────────────────────────────────────────
 function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; salary?: any }) {
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -978,7 +1356,7 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
 
   const saveComponents = useMutation({
     mutationFn: (body: any[]) => api.put(`/payroll/${userId}/components`, body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payroll', userId] }); toast('Components updated'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['payroll', userId] }); toast('Salary structure updated'); },
   });
 
   const savePf = useMutation({
@@ -997,12 +1375,11 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
   const tax = salary?.tax || [];
   const fmt = (n: any) => Number(n || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 
-  // Local state for inline component editing
   const [editComponents, setEditComponents] = useState<any[]>([]);
   const [editPf, setEditPf] = useState<any[]>([]);
   const [editTax, setEditTax] = useState<any[]>([]);
 
-  useEffect(() => {
+  useMemo(() => {
     if (components.length) {
       setEditComponents(components.map((c: any) => ({
         name: c.name,
@@ -1012,7 +1389,6 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
         description: c.description || '',
       })));
     } else {
-      // Default component template
       setEditComponents([
         { name: 'BASIC', computationType: 'PERCENTAGE', basisOf: 'WAGE', value: 40, description: 'Basic Salary' },
         { name: 'HRA', computationType: 'PERCENTAGE', basisOf: 'BASIC', value: 50, description: 'House Rent Allowance' },
@@ -1022,9 +1398,9 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
         { name: 'FIXED_ALLOWANCE', computationType: 'FIXED', basisOf: 'WAGE', value: 0, description: 'Fixed Allowance (auto-remainder)' },
       ]);
     }
-  }, [salary]);
+  }, [components]);
 
-  useEffect(() => {
+  useMemo(() => {
     if (pf.length) {
       setEditPf(pf.map((p: any) => ({ payer: p.payer, ratePercent: Number(p.ratePercent) })));
     } else {
@@ -1033,19 +1409,19 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
         { payer: 'EMPLOYER', ratePercent: 12 },
       ]);
     }
-  }, [salary]);
+  }, [pf]);
 
-  useEffect(() => {
+  useMemo(() => {
     if (tax.length) {
       setEditTax(tax.map((t: any) => ({ name: t.name, amount: Number(t.amount) })));
     } else {
       setEditTax([{ name: 'Professional Tax', amount: 200 }]);
     }
-  }, [salary]);
+  }, [tax]);
 
   const COMPONENT_LABELS: Record<string, string> = {
     BASIC: 'Basic Salary',
-    HRA: 'House Rent Allowance',
+    HRA: 'House Rent Allowance (HRA)',
     STANDARD_ALLOWANCE: 'Standard Allowance',
     PERFORMANCE_BONUS: 'Performance Bonus',
     LTA: 'Leave Travel Allowance',
@@ -1054,36 +1430,43 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
 
   return (
     <Stagger className="grid gap-6 lg:grid-cols-2">
-      {/* Wage */}
-      <StaggerItem className="surface p-6">
-        <h3 className="section-title">Wage</h3>
+      {/* Wage Configuration */}
+      <StaggerItem className="surface p-6 sm:p-7 bg-white/95">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="section-title">Wage Structure</h3>
+          <span className="badge badge-info">Fixed CTC</span>
+        </div>
         <form onSubmit={e => {
           e.preventDefault();
           const f = Object.fromEntries(new FormData(e.currentTarget));
           saveWage.mutate(f);
-        }} className="mt-4 space-y-4">
-          <p className="text-sm text-muted">Wage Type: <strong>Fixed Wage</strong></p>
+        }} className="space-y-4">
           <Field label="Month Wage (₹)" name="monthWage" type="number" step="0.01" defaultValue={wage?.monthWage || ''} required />
-          <p className="text-sm text-muted">Yearly Wage: <strong>{fmt((Number(wage?.monthWage) || 0) * 12)}</strong></p>
-          <Field label="Working Days/Week" name="workingDaysPerWeek" type="number" min="1" max="7" defaultValue={wage?.workingDaysPerWeek || 5} />
-          <Field label="Break Time (minutes)" name="breakTimeMinutes" type="number" min="0" max="240" defaultValue={wage?.breakTimeMinutes || 60} />
+          <div className="p-3.5 rounded-2xl bg-teal-50/80 border border-teal-100 flex items-center justify-between">
+            <span className="text-xs font-bold text-teal-800">Annual Gross Salary:</span>
+            <span className="font-display text-xl text-primary font-bold">{fmt((Number(wage?.monthWage) || 0) * 12)}</span>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Working Days/Week" name="workingDaysPerWeek" type="number" min="1" max="7" defaultValue={wage?.workingDaysPerWeek || 5} />
+            <Field label="Daily Break Time (mins)" name="breakTimeMinutes" type="number" min="0" max="240" defaultValue={wage?.breakTimeMinutes || 60} />
+          </div>
           <Field label="Effective From" name="effectiveFrom" type="date" defaultValue={wage?.effectiveFrom?.slice(0, 10) || new Date().toISOString().slice(0, 10)} required />
           <Button size="sm" disabled={saveWage.isPending}>Save Wage</Button>
         </form>
       </StaggerItem>
 
-      {/* Salary Components */}
-      <StaggerItem className="surface p-6">
-        <h3 className="section-title">Salary Components</h3>
-        <div className="mt-4 space-y-3">
+      {/* Salary Components Breakdown */}
+      <StaggerItem className="surface p-6 sm:p-7 bg-white/95">
+        <h3 className="section-title mb-4">Salary Components</h3>
+        <div className="space-y-3">
           {editComponents.map((c, i) => (
-            <div key={c.name} className="border border-slate-100 rounded-xl p-3 space-y-2">
+            <div key={c.name} className="border border-slate-100 rounded-2xl p-3.5 bg-slate-50/50 space-y-2.5">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-bold">{COMPONENT_LABELS[c.name] || c.name.replace(/_/g, ' ')}</p>
+                <p className="text-xs font-bold text-ink">{COMPONENT_LABELS[c.name] || c.name}</p>
                 {components.find((sc: any) => sc.name === c.name) && (
-                  <p className="text-sm font-bold text-primary">
+                  <span className="text-xs font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                     {fmt(components.find((sc: any) => sc.name === c.name)?.computedAmount)}/mo
-                  </p>
+                  </span>
                 )}
               </div>
               {c.name !== 'FIXED_ALLOWANCE' && (
@@ -1118,25 +1501,24 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
                 </div>
               )}
               {c.name === 'FIXED_ALLOWANCE' && (
-                <p className="text-xs text-muted">Auto-calculated as remainder of Wage − other components</p>
+                <p className="text-[11px] text-slate-400">Auto-balanced remainder: Wage − sum(other components)</p>
               )}
             </div>
           ))}
-          {saveComponents.isError && <p className="text-sm text-danger">{(saveComponents.error as any)?.response?.data?.message}</p>}
+          {saveComponents.isError && <p className="text-xs text-danger font-semibold">{(saveComponents.error as any)?.response?.data?.message}</p>}
           <Button size="sm" onClick={() => saveComponents.mutate(editComponents)} disabled={saveComponents.isPending || !wage}>
             {saveComponents.isPending ? 'Saving…' : 'Save Components'}
           </Button>
-          {!wage && <p className="text-xs text-warning">Set month wage first</p>}
         </div>
       </StaggerItem>
 
       {/* Provident Fund */}
-      <StaggerItem className="surface p-6">
-        <h3 className="section-title">Provident Fund (PF)</h3>
-        <div className="mt-4 space-y-3">
+      <StaggerItem className="surface p-6 sm:p-7 bg-white/95">
+        <h3 className="section-title mb-4">Provident Fund (PF) Contributions</h3>
+        <div className="space-y-3">
           {editPf.map((p, i) => (
-            <div key={p.payer} className="flex items-center gap-3">
-              <p className="w-32 text-sm font-bold shrink-0">{p.payer === 'EMPLOYEE' ? 'Employee' : 'Employer'}</p>
+            <div key={p.payer} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+              <p className="w-32 text-xs font-bold shrink-0">{p.payer === 'EMPLOYEE' ? 'Employee Share' : 'Employer Share'}</p>
               <div className="flex items-center gap-1 flex-1">
                 <input
                   type="number"
@@ -1145,16 +1527,17 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
                   max="100"
                   step="0.01"
                   onChange={e => setEditPf(prev => prev.map((x, xi) => xi === i ? { ...x, ratePercent: Number(e.target.value) } : x))}
-                  className="field !mt-0 flex-1"
+                  className="field !mt-0 flex-1 text-xs"
                 />
-                <span className="text-sm text-muted">%</span>
+                <span className="text-xs text-slate-400 font-bold">%</span>
               </div>
               {pf.find((pfc: any) => pfc.payer === p.payer) && (
-                <p className="text-sm font-bold w-24 text-right">{fmt(pf.find((pfc: any) => pfc.payer === p.payer)?.computedAmount)}/mo</p>
+                <span className="text-xs font-bold text-ink w-24 text-right">
+                  {fmt(pf.find((pfc: any) => pfc.payer === p.payer)?.computedAmount)}/mo
+                </span>
               )}
             </div>
           ))}
-          {savePf.isError && <p className="text-sm text-danger">{(savePf.error as any)?.response?.data?.message}</p>}
           <Button size="sm" onClick={() => savePf.mutate(editPf)} disabled={savePf.isPending}>
             {savePf.isPending ? 'Saving…' : 'Save PF Rates'}
           </Button>
@@ -1162,35 +1545,35 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
       </StaggerItem>
 
       {/* Tax Deductions */}
-      <StaggerItem className="surface p-6">
-        <h3 className="section-title">Tax Deductions</h3>
-        <div className="mt-4 space-y-3">
+      <StaggerItem className="surface p-6 sm:p-7 bg-white/95">
+        <h3 className="section-title mb-4">Tax Deductions</h3>
+        <div className="space-y-3">
           {editTax.map((t, i) => (
-            <div key={i} className="flex items-center gap-3">
+            <div key={i} className="flex items-center gap-2.5">
               <input
                 type="text"
                 value={t.name}
                 onChange={e => setEditTax(prev => prev.map((x, xi) => xi === i ? { ...x, name: e.target.value } : x))}
-                className="field !mt-0 flex-1"
+                className="field !mt-0 flex-1 text-xs"
                 placeholder="Tax name"
               />
               <div className="flex items-center gap-1">
-                <span className="text-sm text-muted">₹</span>
+                <span className="text-xs text-slate-400">₹</span>
                 <input
                   type="number"
                   value={t.amount}
                   min="0"
                   step="1"
                   onChange={e => setEditTax(prev => prev.map((x, xi) => xi === i ? { ...x, amount: Number(e.target.value) } : x))}
-                  className="field !mt-0 w-24"
+                  className="field !mt-0 w-24 text-xs"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setEditTax(prev => prev.filter((_, xi) => xi !== i))}
-                className="text-muted hover:text-danger"
+                className="text-slate-400 hover:text-danger p-1"
               >
-                <X size={14} />
+                <X size={15} />
               </button>
             </div>
           ))}
@@ -1199,19 +1582,20 @@ function SalaryInfoTab({ userId, salary: initialSalary }: { userId: string; sala
             onClick={() => setEditTax(prev => [...prev, { name: '', amount: 0 }])}
             className="chip-add"
           >
-            <Plus size={12} /> Add Tax
+            <Plus size={12} /> Add Tax Rule
           </button>
-          {saveTax.isError && <p className="text-sm text-danger">{(saveTax.error as any)?.response?.data?.message}</p>}
-          <Button size="sm" onClick={() => saveTax.mutate(editTax)} disabled={saveTax.isPending}>
-            {saveTax.isPending ? 'Saving…' : 'Save Tax Deductions'}
-          </Button>
+          <div>
+            <Button size="sm" onClick={() => saveTax.mutate(editTax)} disabled={saveTax.isPending}>
+              {saveTax.isPending ? 'Saving…' : 'Save Tax Deductions'}
+            </Button>
+          </div>
         </div>
       </StaggerItem>
     </Stagger>
   );
 }
 
-// Inline change password form for Security tab
+// Inline Change Password
 function ChangePasswordInline() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -1225,25 +1609,25 @@ function ChangePasswordInline() {
         newPassword: String(f.get('newPassword')),
         confirmPassword: String(f.get('confirmPassword')),
       });
-      setSuccess('Password changed successfully');
+      setSuccess('Password updated successfully');
       setError('');
       e.currentTarget.reset();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed');
+      setError(err.response?.data?.message || 'Failed to change password');
       setSuccess('');
     }
   }
 
   return (
-    <form onSubmit={submit} className="surface p-6 space-y-4">
-      <h3 className="section-title">Change Password</h3>
+    <form onSubmit={submit} className="surface p-6 sm:p-7 space-y-4 bg-white/95">
+      <h3 className="section-title">Security & Password</h3>
       <Field label="Current Password" name="currentPassword" type="password" required />
       <Field label="New Password" name="newPassword" type="password" required minLength={8} />
       <Field label="Confirm New Password" name="confirmPassword" type="password" required minLength={8} />
-      <p className="text-xs text-muted">Min 8 characters, 1 number, 1 symbol</p>
-      {error && <p className="text-sm text-danger">{error}</p>}
-      {success && <p className="text-sm text-success">{success}</p>}
-      <Button>Update Password</Button>
+      <p className="text-[11px] text-slate-400">Min 8 chars with 1 number and 1 symbol</p>
+      {error && <p className="text-xs font-semibold text-danger p-2.5 rounded-lg bg-red-50">{error}</p>}
+      {success && <p className="text-xs font-semibold text-success p-2.5 rounded-lg bg-emerald-50">{success}</p>}
+      <Button size="sm">Update Password</Button>
     </form>
   );
 }
@@ -1290,57 +1674,66 @@ function EmployeeAttendance() {
 
   return (
     <Shell>
-      <h1 className="page-title">Attendance</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="section-title">Time Tracking</span>
+          <h1 className="page-title mt-1">My Attendance</h1>
+        </div>
 
-      {/* Month nav */}
-      <div className="mt-6 flex items-center gap-4">
-        <button onClick={prevMonth} className="rounded-xl p-2 hover:bg-slate-100"><ChevronLeft size={20} /></button>
-        <span className="font-bold">{monthLabel}</span>
-        <button onClick={nextMonth} className="rounded-xl p-2 hover:bg-slate-100"><ChevronRight size={20} /></button>
+        {/* Month Navigation */}
+        <div className="flex items-center gap-2 bg-white rounded-2xl p-1 border border-slate-200/80 shadow-sm self-start sm:self-auto">
+          <button onClick={prevMonth} className="rounded-xl p-2 hover:bg-slate-100 text-slate-600 transition-colors">
+            <ChevronLeft size={18} />
+          </button>
+          <span className="font-bold text-sm px-3 text-ink min-w-[140px] text-center">{monthLabel}</span>
+          <button onClick={nextMonth} className="rounded-xl p-2 hover:bg-slate-100 text-slate-600 transition-colors">
+            <ChevronRight size={18} />
+          </button>
+        </div>
       </div>
 
-      {/* Summary strip — bento-style */}
-      <Stagger className="mt-6 grid gap-4 sm:grid-cols-3">
-        <StaggerItem className="surface p-6 text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-glow opacity-50" />
-          <p className="section-title relative">Days Present</p>
-          <p className="relative mt-2 font-display text-5xl text-primary">{summary.daysPresent || 0}</p>
+      {/* Bento Summary Strip */}
+      <Stagger className="mt-8 grid gap-4 sm:grid-cols-3">
+        <StaggerItem className="bento-stat bg-white/95">
+          <span className="section-title">Days Present</span>
+          <p className="mt-2 font-display text-5xl text-primary font-bold">{summary.daysPresent || 0}</p>
+          <p className="text-xs text-slate-500 mt-1 font-medium">Recorded this month</p>
         </StaggerItem>
-        <StaggerItem className="surface p-6 text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-glow opacity-50" />
-          <p className="section-title relative">Leaves</p>
-          <p className="relative mt-2 font-display text-5xl text-warning">{summary.leavesCount || 0}</p>
+        <StaggerItem className="bento-stat bg-white/95">
+          <span className="section-title">Leaves Taken</span>
+          <p className="mt-2 font-display text-5xl text-warning font-bold">{summary.leavesCount || 0}</p>
+          <p className="text-xs text-slate-500 mt-1 font-medium">Approved time off</p>
         </StaggerItem>
-        <StaggerItem className="surface p-6 text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-glow opacity-50" />
-          <p className="section-title relative">Total Hours</p>
-          <p className="relative mt-2 font-display text-5xl text-ink">{summary.totalWorkingHours || 0}</p>
+        <StaggerItem className="bento-stat bg-white/95">
+          <span className="section-title">Total Hours Worked</span>
+          <p className="mt-2 font-display text-5xl text-ink font-bold">{summary.totalWorkingHours || 0}</p>
+          <p className="text-xs text-slate-500 mt-1 font-medium">Computed effective hours</p>
         </StaggerItem>
       </Stagger>
 
-      {/* Day-wise table */}
-      <div className="surface mt-6 overflow-x-auto scrollbar-thin">
+      {/* Day-wise Table */}
+      <div className="surface mt-8 overflow-x-auto scrollbar-thin bg-white/95 p-2">
         {isLoading ? (
           <div className="p-6 space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12" />)}</div>
         ) : records.length ? (
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-xs text-muted">
-                <th className="p-4">DATE</th>
-                <th className="p-4">CHECK IN</th>
-                <th className="p-4">CHECK OUT</th>
-                <th className="p-4">WORK HOURS</th>
-                <th className="p-4">EXTRA HOURS</th>
-                <th className="p-4">STATUS</th>
+              <tr className="border-b border-slate-100 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                <th className="p-4">Date</th>
+                <th className="p-4">Check In</th>
+                <th className="p-4">Check Out</th>
+                <th className="p-4">Work Hours</th>
+                <th className="p-4">Extra Hours</th>
+                <th className="p-4">Status</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-50">
               {records.map((a: any) => (
-                <motion.tr layout key={a.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                  <td className="p-4 font-medium">{new Date(a.date).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })}</td>
-                  <td className="p-4">{a.checkIn ? new Date(a.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                  <td className="p-4">{a.checkOut ? new Date(a.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                  <td className="p-4 font-bold">{a.workHours ? `${Number(a.workHours).toFixed(1)}h` : '—'}</td>
+                <motion.tr layout key={a.id} className="hover:bg-slate-50/70 transition-colors">
+                  <td className="p-4 font-bold text-ink">{new Date(a.date).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })}</td>
+                  <td className="p-4 text-slate-600 font-medium">{a.checkIn ? new Date(a.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                  <td className="p-4 text-slate-600 font-medium">{a.checkOut ? new Date(a.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                  <td className="p-4 font-bold text-ink">{a.workHours ? `${Number(a.workHours).toFixed(1)}h` : '—'}</td>
                   <td className="p-4 font-bold text-primary">{a.extraHours && Number(a.extraHours) > 0 ? `+${Number(a.extraHours).toFixed(1)}h` : '—'}</td>
                   <td className="p-4"><Status value={a.status} /></td>
                 </motion.tr>
@@ -1348,7 +1741,7 @@ function EmployeeAttendance() {
             </tbody>
           </table>
         ) : (
-          <Empty>No attendance records for this month.</Empty>
+          <Empty>No attendance records found for {monthLabel}.</Empty>
         )}
       </div>
     </Shell>
@@ -1365,38 +1758,41 @@ function AdminAttendance() {
 
   return (
     <Shell>
-      <div className="flex flex-wrap items-center gap-4">
-        <h1 className="page-title">Attendance</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="section-title">Admin Console</span>
+          <h1 className="page-title mt-1">Company Attendance</h1>
+        </div>
         <input
           type="date"
-          className="field !mt-0 !w-auto ml-auto"
+          className="field !mt-0 !w-auto bg-white"
           value={date}
           onChange={e => setDate(e.target.value)}
         />
       </div>
 
-      <div className="surface mt-6 overflow-x-auto scrollbar-thin">
+      <div className="surface mt-8 overflow-x-auto scrollbar-thin bg-white/95 p-2">
         {isLoading ? (
           <div className="p-6 space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12" />)}</div>
         ) : data.length ? (
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-xs text-muted">
-                <th className="p-4">EMPLOYEE</th>
-                <th className="p-4">CHECK IN</th>
-                <th className="p-4">CHECK OUT</th>
-                <th className="p-4">WORK HOURS</th>
-                <th className="p-4">EXTRA HOURS</th>
-                <th className="p-4">STATUS</th>
+              <tr className="border-b border-slate-100 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                <th className="p-4">Employee</th>
+                <th className="p-4">Check In</th>
+                <th className="p-4">Check Out</th>
+                <th className="p-4">Work Hours</th>
+                <th className="p-4">Extra Hours</th>
+                <th className="p-4">Status</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-50">
               {data.map((a: any) => (
-                <motion.tr layout key={a.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                  <td className="p-4 font-bold">{a.user?.profile?.fullName || a.userId}</td>
-                  <td className="p-4">{a.checkIn ? new Date(a.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                  <td className="p-4">{a.checkOut ? new Date(a.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                  <td className="p-4 font-bold">{a.workHours ? `${Number(a.workHours).toFixed(1)}h` : '—'}</td>
+                <motion.tr layout key={a.id} className="hover:bg-slate-50/70 transition-colors">
+                  <td className="p-4 font-bold text-ink">{a.user?.profile?.fullName || a.userId}</td>
+                  <td className="p-4 text-slate-600 font-medium">{a.checkIn ? new Date(a.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                  <td className="p-4 text-slate-600 font-medium">{a.checkOut ? new Date(a.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                  <td className="p-4 font-bold text-ink">{a.workHours ? `${Number(a.workHours).toFixed(1)}h` : '—'}</td>
                   <td className="p-4 font-bold text-primary">{a.extraHours && Number(a.extraHours) > 0 ? `+${Number(a.extraHours).toFixed(1)}h` : '—'}</td>
                   <td className="p-4"><Status value={a.status} /></td>
                 </motion.tr>
@@ -1404,7 +1800,7 @@ function AdminAttendance() {
             </tbody>
           </table>
         ) : (
-          <Empty>No attendance records for this date.</Empty>
+          <Empty>No attendance records for {date}.</Empty>
         )}
       </div>
     </Shell>
@@ -1412,22 +1808,21 @@ function AdminAttendance() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// LEAVE CALENDAR (§7.5) — Year-view calendar for employees
+// LEAVE CALENDAR (§7.5)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 const LEAVE_COLORS: Record<string, { bg: string; text: string }> = {
-  PAID: { bg: 'bg-primary/15', text: 'text-primary' },
-  SICK: { bg: 'bg-warning/15', text: 'text-warning' },
-  UNPAID: { bg: 'bg-muted/10', text: 'text-muted' },
+  PAID: { bg: 'bg-teal-100 text-teal-800 font-bold', text: 'text-primary' },
+  SICK: { bg: 'bg-amber-100 text-amber-800 font-bold', text: 'text-warning' },
+  UNPAID: { bg: 'bg-slate-200 text-slate-700 font-bold', text: 'text-slate-600' },
 };
 
 function LeaveCalendar({ leaves }: { leaves: any[] }) {
   const year = new Date().getFullYear();
 
-  // Build a map: date string → leave info
   const leaveMap = useMemo(() => {
     const map: Record<string, any> = {};
     for (const leave of leaves) {
@@ -1444,22 +1839,27 @@ function LeaveCalendar({ leaves }: { leaves: any[] }) {
   }, [leaves]);
 
   return (
-    <div className="mt-8">
-      <h2 className="section-title mb-4">Year Calendar — {year}</h2>
+    <div className="mt-10">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <span className="section-title">Annual Overview</span>
+          <h2 className="text-xl font-display font-bold text-ink mt-0.5">Time Off Calendar — {year}</h2>
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {MONTH_NAMES.map((monthName, monthIdx) => {
           const firstDay = new Date(year, monthIdx, 1);
           const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-          const startDow = firstDay.getDay(); // 0=Sun
+          const startDow = firstDay.getDay();
 
           return (
-            <div key={monthIdx} className="surface p-4">
-              <p className="mb-3 text-sm font-bold">{monthName}</p>
-              <div className="grid grid-cols-7 gap-0.5">
+            <div key={monthIdx} className="surface p-4 bg-white/95">
+              <p className="mb-2.5 text-xs font-extrabold uppercase tracking-wider text-slate-600">{monthName}</p>
+              <div className="grid grid-cols-7 gap-1 text-center">
                 {DAY_NAMES.map(d => (
-                  <div key={d} className="text-center text-[9px] font-bold text-muted py-0.5">{d}</div>
+                  <div key={d} className="text-[10px] font-bold text-slate-400 py-0.5">{d}</div>
                 ))}
-                {/* Blank cells for start */}
                 {Array.from({ length: startDow }).map((_, i) => (
                   <div key={`blank-${i}`} />
                 ))}
@@ -1474,9 +1874,9 @@ function LeaveCalendar({ leaves }: { leaves: any[] }) {
                       key={day}
                       title={leave ? `${leave.leaveType} (${leave.status})` : undefined}
                       className={`
-                        flex h-6 w-full items-center justify-center rounded text-[10px] font-medium
-                        ${isToday ? 'ring-1 ring-primary font-bold' : ''}
-                        ${leave ? `${LEAVE_COLORS[leave.leaveType]?.bg || 'bg-slate-100'} ${LEAVE_COLORS[leave.leaveType]?.text || ''}` : 'hover:bg-slate-50'}
+                        flex h-6 w-full items-center justify-center rounded-md text-[10px] font-medium transition-all
+                        ${isToday ? 'ring-2 ring-primary font-extrabold bg-teal-50' : ''}
+                        ${leave ? `${LEAVE_COLORS[leave.leaveType]?.bg || 'bg-slate-100'}` : 'hover:bg-slate-100/60 text-slate-700'}
                       `}
                     >
                       {day}
@@ -1490,17 +1890,12 @@ function LeaveCalendar({ leaves }: { leaves: any[] }) {
       </div>
 
       {/* Legend */}
-      <div className="mt-4 flex flex-wrap gap-4">
-        {Object.entries(LEAVE_COLORS).map(([type, colors]) => (
-          <div key={type} className="flex items-center gap-2">
-            <span className={`h-3 w-3 rounded ${colors.bg}`} />
-            <span className="text-xs font-medium text-muted">{type === 'PAID' ? 'Paid Time Off' : type === 'SICK' ? 'Sick Leave' : 'Unpaid Leave'}</span>
-          </div>
-        ))}
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded ring-1 ring-primary" />
-          <span className="text-xs font-medium text-muted">Today</span>
-        </div>
+      <div className="mt-4 flex flex-wrap items-center gap-4 p-3 rounded-2xl bg-white/80 border border-slate-100 text-xs font-semibold text-slate-600">
+        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Legend:</span>
+        <div className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-teal-100 border border-teal-300" /> Paid Time Off</div>
+        <div className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-amber-100 border border-amber-300" /> Sick Leave</div>
+        <div className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-slate-200 border border-slate-300" /> Unpaid Leave</div>
+        <div className="flex items-center gap-1.5"><span className="h-3 w-3 rounded ring-2 ring-primary bg-teal-50" /> Today</div>
       </div>
     </div>
   );
@@ -1520,13 +1915,11 @@ function TimeOffPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  // Leave allocations / balances — both roles see their own
   const { data: allocations = [] } = useQuery({
     queryKey: ['allocations'],
     queryFn: () => api.get('/leave/allocations/me').then(r => r.data),
   });
 
-  // Leave requests
   const endpoint = isAdmin ? '/leave' : '/leave/me';
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['leave-requests', endpoint],
@@ -1568,100 +1961,104 @@ function TimeOffPage() {
 
   return (
     <Shell>
-      <div className="flex flex-wrap items-center gap-4">
-        <h1 className="page-title">Time Off</h1>
-        {/* Both roles can request leave */}
-        <Button className="ml-auto" onClick={() => setShowRequest(true)}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="section-title">Absence Management</span>
+          <h1 className="page-title mt-1">Time Off</h1>
+        </div>
+        <Button onClick={() => setShowRequest(true)} className="self-start sm:self-auto">
           <Plus size={16} /> New Request
         </Button>
       </div>
 
-      {/* Balance headers — BOTH roles see their own balances (§7.5) */}
-      <Stagger className="mt-6 grid gap-4 sm:grid-cols-3">
+      {/* Balance Headers */}
+      <Stagger className="mt-8 grid gap-4 sm:grid-cols-3">
         {(['PAID', 'SICK', 'UNPAID'] as const).map(type => {
           const b = getBalance(type);
           const label = LEAVE_TYPE_LABELS[type];
           return (
-            <StaggerItem key={type} className="surface relative overflow-hidden p-6">
-              <div className="absolute inset-0 bg-gradient-glow opacity-40" />
-              <p className="section-title relative">{label}</p>
-              <p className="relative mt-2 font-display text-4xl text-primary">{type === 'UNPAID' ? '∞' : b.available}</p>
-              <p className="relative text-xs text-muted">{type !== 'UNPAID' ? `${b.total} total · ${b.used} used` : 'No limit'}</p>
+            <StaggerItem key={type} className="bento-stat bg-white/95">
+              <span className="section-title">{label}</span>
+              <p className="mt-2 font-display text-4xl text-primary font-bold">
+                {type === 'UNPAID' ? '∞' : b.available}
+                {type !== 'UNPAID' && <span className="text-sm font-sans font-bold text-slate-400 ml-1">days left</span>}
+              </p>
+              <p className="text-xs text-slate-500 mt-1 font-medium">
+                {type !== 'UNPAID' ? `${b.total} total allotted · ${b.used} used` : 'Unlimited policy'}
+              </p>
             </StaggerItem>
           );
         })}
       </Stagger>
 
-      {/* Admin sub-tabs */}
+      {/* Admin Subtabs */}
       {isAdmin && (
-        <div className="mt-6 flex gap-1 border-b border-slate-100">
-          <button onClick={() => setSubTab('requests')} className={`tab ${subTab === 'requests' ? 'tab-active' : ''}`}>Requests</button>
-          <button onClick={() => setSubTab('allocation')} className={`tab ${subTab === 'allocation' ? 'tab-active' : ''}`}>Allocation</button>
+        <div className="mt-8 flex gap-2 border-b border-slate-200 pb-1">
+          <button onClick={() => setSubTab('requests')} className={`tab ${subTab === 'requests' ? 'tab-active' : ''}`}>Requests Queue</button>
+          <button onClick={() => setSubTab('allocation')} className={`tab ${subTab === 'allocation' ? 'tab-active' : ''}`}>Quota Allocations</button>
         </div>
       )}
 
-      {/* Requests list */}
+      {/* Requests Queue */}
       {(!isAdmin || subTab === 'requests') && (
         <div className="mt-6 space-y-3">
           <AnimatePresence mode="popLayout">
             {isLoading ? (
-              [1, 2, 3].map(i => <Skeleton key={i} className="h-20" />)
+              [1, 2, 3].map(i => <Skeleton key={i} className="h-24" />)
             ) : requests.length ? (
               requests.map((item: any) => (
                 <motion.div
                   layout
                   key={item.id}
-                  initial={{ opacity: 0, y: 12 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -100 }}
-                  className="surface flex flex-wrap items-center gap-4 p-5"
+                  exit={{ opacity: 0, x: -60 }}
+                  className="surface flex flex-wrap items-center justify-between gap-4 p-5 bg-white/95"
                 >
                   <div className="min-w-0 flex-1">
-                    {/* Show employee name for admin, leave type label for employee */}
-                    <p className="font-bold">
-                      {isAdmin
-                        ? (item.user?.profile?.fullName || 'Unknown Employee')
-                        : LEAVE_TYPE_LABELS[item.leaveType] || item.leaveType
-                      }
+                    <p className="font-bold text-ink">
+                      {isAdmin ? (item.user?.profile?.fullName || 'Employee') : (LEAVE_TYPE_LABELS[item.leaveType] || item.leaveType)}
                     </p>
-                    <p className="text-sm text-muted">
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium">
                       {new Date(item.startDate).toLocaleDateString()} — {new Date(item.endDate).toLocaleDateString()}
-                      {' · '}{Number(item.days)} day{Number(item.days) !== 1 ? 's' : ''}
+                      {' · '}<strong>{Number(item.days)} day{Number(item.days) !== 1 ? 's' : ''}</strong>
                       {isAdmin && ` · ${LEAVE_TYPE_LABELS[item.leaveType] || item.leaveType}`}
                     </p>
-                    {item.remarks && <p className="mt-1 text-xs text-muted">"{item.remarks}"</p>}
-                    {item.reviewerComment && <p className="mt-1 text-xs text-warning">Comment: {item.reviewerComment}</p>}
+                    {item.remarks && <p className="mt-1.5 text-xs text-slate-600 italic">"{item.remarks}"</p>}
+                    {item.reviewerComment && <p className="mt-1.5 text-xs text-warning font-semibold">Admin comment: {item.reviewerComment}</p>}
                   </div>
-                  <Status value={item.status} />
-                  {isAdmin && item.status === 'PENDING' && (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="success" onClick={() => decide.mutate({ id: item.id, status: 'APPROVED' })}>
-                        Approve
-                      </Button>
-                      <Button size="sm" variant="danger" onClick={() => {
-                        setRejectModal({ id: item.id });
-                        setRejectComment('');
-                      }}>
-                        Reject
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    <Status value={item.status} />
+                    {isAdmin && item.status === 'PENDING' && (
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="success" onClick={() => decide.mutate({ id: item.id, status: 'APPROVED' })}>
+                          Approve
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => {
+                          setRejectModal({ id: item.id });
+                          setRejectComment('');
+                        }}>
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               ))
             ) : (
-              <Empty icon={<CalendarDays size={40} />}>No leave requests yet.</Empty>
+              <Empty icon={<CalendarDays size={36} />}>No leave requests recorded yet.</Empty>
             )}
           </AnimatePresence>
         </div>
       )}
 
-      {/* Employee: year-view calendar */}
+      {/* Year Calendar for Employees */}
       {!isAdmin && <LeaveCalendar leaves={requests} />}
 
-      {/* Allocation sub-tab (Admin) */}
+      {/* Admin Allocation Subtab */}
       {isAdmin && subTab === 'allocation' && <AllocationTab />}
 
-      {/* Request modal */}
+      {/* Request Modal */}
       <Modal open={showRequest} onClose={() => setShowRequest(false)} title="Request Time Off">
         <form
           onSubmit={e => {
@@ -1679,43 +2076,46 @@ function TimeOffPage() {
             <Field label="Start Date" name="startDate" type="date" required />
             <Field label="End Date" name="endDate" type="date" required />
           </div>
-          <Field label="Remarks" name="remarks" />
+          <Field label="Remarks / Reason" name="remarks" placeholder="Optional notes for reviewer" />
           <label className="block">
-            <span className="label">Attachment (required for sick leave)</span>
+            <span className="label block">Attachment (required for sick leave)</span>
             <input className="field" name="attachment" type="file" accept="image/jpeg,image/png,application/pdf" />
           </label>
           {applyLeave.isError && (
-            <p className="text-sm text-danger">{(applyLeave.error as any)?.response?.data?.message || 'Failed to submit'}</p>
+            <p className="text-xs font-semibold text-danger p-3 rounded-xl bg-red-50 border border-red-200">
+              {(applyLeave.error as any)?.response?.data?.message || 'Failed to submit'}
+            </p>
           )}
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={applyLeave.isPending}>
-              {applyLeave.isPending ? 'Submitting…' : 'Submit Request'}
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <Button type="submit" disabled={applyLeave.isPending} className="flex-1">
+              {applyLeave.isPending ? 'Submitting…' : 'Submit Request →'}
             </Button>
             <Button type="button" variant="quiet" onClick={() => setShowRequest(false)}>Discard</Button>
           </div>
         </form>
       </Modal>
 
-      {/* Reject modal — proper modal instead of prompt() */}
-      <Modal open={!!rejectModal} onClose={() => { setRejectModal(null); setRejectComment(''); }} title="Reject Leave Request">
+      {/* Rejection Modal */}
+      <Modal open={!!rejectModal} onClose={() => { setRejectModal(null); setRejectComment(''); }} title="Reject Time Off Request">
         <div className="space-y-4">
-          <p className="text-sm text-muted">Please provide a reason for rejecting this leave request.</p>
+          <p className="text-xs text-slate-500">Provide a helpful reason for the employee regarding why this request was declined.</p>
           <TextArea
             label="Reason for Rejection"
             name="comment"
             value={rejectComment}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRejectComment(e.target.value)}
-            placeholder="Enter rejection reason…"
+            placeholder="e.g. Incomplete sprint commitments, please reschedule."
             required
           />
           {decide.isError && (
-            <p className="text-sm text-danger">{(decide.error as any)?.response?.data?.message || 'Failed'}</p>
+            <p className="text-xs font-semibold text-danger">{(decide.error as any)?.response?.data?.message || 'Failed'}</p>
           )}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
             <Button
               variant="danger"
               disabled={!rejectComment.trim() || decide.isPending}
               onClick={() => rejectModal && decide.mutate({ id: rejectModal.id, status: 'REJECTED', comment: rejectComment })}
+              className="flex-1"
             >
               {decide.isPending ? 'Rejecting…' : 'Confirm Rejection'}
             </Button>
@@ -1727,7 +2127,7 @@ function TimeOffPage() {
   );
 }
 
-// ── Admin Allocation sub-tab ────────────────────────────────────────────────
+// ── Admin Allocation Tab ────────────────────────────────────────────────────
 function AllocationTab() {
   const { data: employees } = useQuery({
     queryKey: ['employees'],
@@ -1749,8 +2149,8 @@ function AllocationTab() {
 
   return (
     <div className="mt-6 space-y-6">
-      <Select label="Select Employee" value={selected} onChange={e => setSelected(e.target.value)}>
-        <option value="">— Choose —</option>
+      <Select label="Select Employee to Manage Quota" value={selected} onChange={e => setSelected(e.target.value)} className="max-w-md">
+        <option value="">— Select Employee —</option>
         {employees?.items?.map((emp: any) => (
           <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.loginId})</option>
         ))}
@@ -1768,12 +2168,12 @@ function AllocationTab() {
                   const f = new FormData(e.currentTarget);
                   save.mutate({ leaveType: type, totalDays: Number(f.get('totalDays')) });
                 }}
-                className="surface p-5 space-y-3"
+                className="surface p-6 space-y-3 bg-white/95"
               >
-                <h4 className="text-sm font-bold">{type === 'PAID' ? 'Paid Time Off' : type === 'SICK' ? 'Sick Leave' : 'Unpaid Leave'}</h4>
-                <Field label="Total Days" name="totalDays" type="number" step="0.5" defaultValue={alloc ? Number(alloc.totalDays) : 0} />
-                <p className="text-xs text-muted">Used: {alloc ? Number(alloc.usedDays) : 0}</p>
-                <Button size="sm" disabled={save.isPending}>Save</Button>
+                <h4 className="text-sm font-bold text-ink">{type === 'PAID' ? 'Paid Time Off' : type === 'SICK' ? 'Sick Leave' : 'Unpaid Leave'}</h4>
+                <Field label="Total Allowed Days" name="totalDays" type="number" step="0.5" defaultValue={alloc ? Number(alloc.totalDays) : 0} />
+                <p className="text-xs text-slate-400 font-semibold">Currently Used: {alloc ? Number(alloc.usedDays) : 0} days</p>
+                <Button size="sm" disabled={save.isPending}>Update Quota</Button>
               </form>
             );
           })}
