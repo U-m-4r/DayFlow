@@ -14,6 +14,8 @@
 * 💼 **Configurable Payroll & Salary Structure**: Server-computed CTC breakdown (Basic, HRA, Allowances, PF, Tax) with automatic remainder balancing.
 * 🔔 **In-App Notification Center**: Instant alerts on leave approvals, attendance milestones, and administrative updates.
 * 🛡️ **Role-Based Security & Permissions**: Field-level access control for Admin vs. Employee, JWT token rotation, and first-time forced password resets.
+* 🤖 **AI Assistant (Gemini)**: Built-in context-aware chatbot support widget accessible on all authenticated pages.
+* 🧹 **Admin Controls**: Robust employee lifecycle management including cascade deletion of profiles and associated records.
 * ✨ **Modern SaaS Aesthetics**: Ambient glassmorphism, responsive bento grids, and Framer Motion micro-interactions.
 
 ---
