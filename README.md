@@ -13,7 +13,7 @@ Dayflow is a local-first HR management system for employee profiles, attendance,
 ## Local setup
 
 1. Copy `server/.env.example` to `server/.env` and replace the JWT development secrets.
-2. Start local services: `docker compose up -d`.
+2. Start Docker Desktop (ensure its Linux engine is running), then start local services: `docker compose up -d`.
 3. Install dependencies: `npm install`.
 4. Apply the committed initial migration and seed demo records:
 

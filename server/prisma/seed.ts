@@ -1,4 +1,7 @@
 /** Creates local-only demo accounts, all pre-verified so the app is usable immediately. */
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({path:path.resolve(__dirname,'../.env')});
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
