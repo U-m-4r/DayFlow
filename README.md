@@ -83,3 +83,4 @@ npm test
 - Uploads are intentionally stored under `server/uploads/` and ignored by Git. Photos accept JPEG/PNG; employee documents accept PDF; both are capped at 5 MB.
 - Current payroll admin API writes salary-history rows (audit-by/effective date). The minimal UI exposes employee read-only salary and HR listing; richer HR editors and report screens remain the next sensible UI increment.
 - Verification email is sent through MailHog during development. In production, set normal SMTP values in `server/.env`.
+ya so done
