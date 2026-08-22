@@ -15,6 +15,7 @@ import { api } from './api';
 import { AuthProvider, useAuth, User } from './auth';
 import { AnimatedPage, MotionProvider, Stagger, StaggerItem, motion } from './components/motion';
 import { Button, Chip, Empty, Field, Modal, Select, Skeleton, Status, StatusDot, TextArea, ToastProvider, useToast } from './components/ui';
+import { ChatbotWidget } from './components/ChatbotWidget';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -302,6 +303,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </AnimatedPage>
+      <ChatbotWidget />
     </div>
   );
 }

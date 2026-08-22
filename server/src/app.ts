@@ -16,6 +16,7 @@ import attendanceRoutes from './modules/attendance/routes';
 import leaveRoutes from './modules/leave/routes';
 import payrollRoutes from './modules/payroll/routes';
 import notificationRoutes from './modules/notifications/routes';
+import chatbotRoutes from './modules/chatbot/routes';
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/v1/attendance', attendanceRoutes);
 app.use('/api/v1/leave', leaveRoutes);
 app.use('/api/v1/payroll', payrollRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/chatbot', chatbotRoutes);
 
 // ── Error handling ───────────────────────────────────────────────────────────
 app.use(notFound);
