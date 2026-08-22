@@ -12,11 +12,16 @@
   }
 
   body {
-    @apply bg-background text-ink font-sans antialiased selection:bg-primary-100 selection:text-primary-900;
+    @apply bg-background text-ink font-sans antialiased;
     background-image: 
       radial-gradient(at 15% 15%, rgba(20, 184, 166, 0.06) 0px, transparent 40%),
       radial-gradient(at 85% 85%, rgba(59, 130, 246, 0.04) 0px, transparent 40%);
     background-attachment: fixed;
+  }
+
+  ::selection {
+    background-color: #CCFBF1;
+    color: #134E4A;
   }
 
   /* Accessible focus rings on all interactive elements */
