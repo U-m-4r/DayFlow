@@ -4,6 +4,8 @@
 
 **Dayflow** is a modern, high-performance, local-first HR management workspace tailored for agile teams and growing organizations. It unifies **employee onboarding, live presence tracking, time-off workflow, salary structure design, and real-time notifications** into an ambient glassmorphism UI with zero external cloud dependencies.
 
+For detailed architecture, data models, and API specifications, please refer to the [Final Build Plan](Final_Plan.md).
+
 ---
 
 ## 🏆 Project Overview & Highlights
