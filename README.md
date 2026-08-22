@@ -26,17 +26,42 @@ The project is structured to continue with the remaining polish and scale-up wor
 
 ## Local setup
 
-1. Copy `server/.env.example` to `server/.env` and replace the JWT development secrets.
-2. Start Docker Desktop (ensure its Linux engine is running), then start local services: `docker compose up -d`.
-3. Install dependencies: `npm install`.
-4. Apply the committed initial migration and seed demo records:
+1. Install Node.js 20 or newer and Docker Desktop. PostgreSQL does not need to be installed separately; Docker runs it for this project.
+2. From the repository root, install dependencies:
+
+```powershell
+cd C:\Users\<your-user>\Desktop\DayFlow
+npm install
+```
+
+3. Create `server/.env` from the example file:
+
+```powershell
+Copy-Item server\.env.example server\.env
+```
+
+Replace `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` in `server/.env` with two different long random values.
+
+4. Start Docker Desktop, then start PostgreSQL and MailHog:
+
+```powershell
+docker compose up -d
+```
+
+5. Apply the committed initial migration and seed demo records:
 
 ```powershell
 npm run db:migrate
 npm run db:seed
 ```
 
-5. Run both applications: `npm run dev`.
+6. Run both applications:
+
+```powershell
+npm run dev
+```
+
+Leave this terminal running while using the application. Stop it with `Ctrl+C` before starting it again. Starting a second copy causes `EADDRINUSE` errors because ports 4000 and 5173 are already occupied.
 
 The client is at `http://localhost:5173`, API health is at `http://localhost:4000/api/v1/health`, and MailHog is at `http://localhost:8025`.
 
