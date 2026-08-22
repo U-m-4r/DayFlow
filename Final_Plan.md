@@ -1,4 +1,3 @@
-[Plan-3.md](https://github.com/user-attachments/files/31328251/Plan-3.md)
 # Dayflow — HR Management System — Build Plan
 
 > "Every workday, perfectly aligned."
@@ -639,3 +638,24 @@ A module is done when:
 - [ ] Reduced-motion fallback verified for this module's animations
 - [ ] At least one automated test covers the happy path and one failure path
 - [ ] No hardcoded/static data remains in the frontend for this module
+
+## Features
+
+> Consolidated feature list for Dayflow. Most items map directly onto modules already specified in §4–§7; a few extend those modules and are flagged below as **(extends plan)** so the scope change is explicit before implementation.
+
+- **Admin/HR and employee role-based workspace** — the two-role model from Project Overview and §7 throughout.
+- **Admin-created employee onboarding with generated employee ID and temporary password** — §7.1's Login ID generator and Admin "NEW" employee flow.
+- **Employee invite email with login link, temporary credentials, OTP verification, and forced password change** — the credentials-email and forced-change parts match §7.1; the **login link and OTP verification are new** and extend §7.1's auth flow **(extends plan)**. Requires: a signed/expiring invite token embedded in the email link, an `otps` table (or reusable OTP mechanism) and `POST /auth/otp/verify` route, and updating `mustchangepassword` gating to also require OTP verification on first login.
+- **Employee signup flow for activating HR-created accounts** — a lightweight "activate my account" step reached via the invite link above (set/confirm password, land on forced-change if still required). This does **not** reintroduce public self-signup — accounts are still Admin-created; the employee is only *activating* an existing account **(extends plan, consistent with §7.1's "no public self-signup" rule)**.
+- **Forgot password workflow with OTP verification** — new to the plan; add `POST /auth/forgot-password` (issues OTP to the registered email) and `POST /auth/reset-password` (OTP + new password + confirm, enforcing the §"Validation Rules" password policy) **(extends plan)**.
+- **Employee profile management with profile photo, resume, ID proof, bank proof, offer letter, and education certificates** — profile photo and resume fields already covered by §4.3/§7.3; **ID proof, bank proof, offer letter, and education certificates** are `doctype` values on the existing §4.6 `documents` entity and Resume/Private Info tabs, uploaded via the existing `POST /users/:id/documents` route.
+- **Admin document approval/rejection queue with per-document comments** — new: extends §4.6 `documents` with `status enum(PENDING,APPROVED,REJECTED)` and `reviewercomment`, plus an Admin-only queue view and a `PATCH /users/:id/documents/:docId/decision` route **(extends plan)**.
+- **Attendance check-in/check-out, admin manual attendance correction, monthly filters, and extra-hour calculation** — matches §4.7/§7.4 and the existing `PATCH /attendance/:id` admin-override route exactly.
+- **Time-off requests for paid, sick, and unpaid leave with balance validation and sick certificate upload** — matches §4.8/§4.9/§7.5 and the Validation Rules table exactly.
+- **Admin approval/rejection workflow for leave requests** — matches §7.5's Time Off sub-tab and `PATCH /leave/:id/decision`.
+- **Payroll calculation from salary, attendance, leave, absences, and extra hours** — the salary/component/PF/tax math is covered by §4.10–4.13/§7.6; the **attendance-, leave-, absence-, and extra-hour-driven payable-days computation** is currently only noted in passing (§7.4: "Attendance is the source of truth for payable-days computation (Phase 8...)"). This item promotes that computation from a Phase 8 note to an explicit part of the Payroll module and should be scheduled alongside Phase 5, not deferred **(extends plan)**.
+- **Executive reports for attendance, leave, payroll, account activation, and document health** — attendance/leave/payroll reporting is covered by §7.7/Phase 8 (`/reports/attendance-summary`, `/reports/salary-slip/:userId`); **account-activation and document-health reporting are new** report types, requiring `GET /reports/account-activation` (invite-sent / OTP-verified / activated / still-pending counts) and `GET /reports/document-health` (per-document-type completion + pending-approval counts) **(extends plan)**.
+
+### Follow-up for the plan owner
+
+Before Phase 1 kicks off, the items marked **(extends plan)** above should be folded into §4 (new/extended entities: `documents.status`, `documents.reviewercomment`, an `otps` table or equivalent), §5 (new routes for OTP, forgot-password, document decisions, and the two new report types), and §7 (screen-level behavior for OTP entry, account activation, and the document approval queue) so the Definition of Done checklist stays accurate for those modules.
