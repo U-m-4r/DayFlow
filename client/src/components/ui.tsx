@@ -1,0 +1,6 @@
+/** Shared surface, feedback and status UI preserves validation, loading and visual consistency. */
+import { motion } from './motion'; import { CheckCircle2,Clock3,XCircle } from 'lucide-react';
+export const Button=({children,...props}:any)=><motion.button whileHover={{scale:1.02}} whileTap={{scale:.98}} className={`btn-primary ${props.className||''}`} {...props}>{children}</motion.button>;
+export const Field=({label,error,...props}:{label:string;error?:string}&React.InputHTMLAttributes<HTMLInputElement>)=><label className="block"><span className="label">{label}</span><input className="field" {...props}/>{error&&<span className="mt-1 block text-xs text-danger">{error}</span>}</label>;
+export function Status({value}:{value:string}){const kind=/APPROVED|PRESENT/.test(value)?'bg-emerald-100 text-success':/REJECTED|ABSENT/.test(value)?'bg-red-100 text-danger':'bg-amber-100 text-warning';const Icon=/APPROVED|PRESENT/.test(value)?CheckCircle2:/REJECTED|ABSENT/.test(value)?XCircle:Clock3;return <motion.span layout className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-extrabold ${kind}`}><Icon size={14}/>{value.replace('_',' ')}</motion.span>}
+export const Empty=({children}:{children:React.ReactNode})=><div className="surface p-10 text-center text-muted">{children}</div>;

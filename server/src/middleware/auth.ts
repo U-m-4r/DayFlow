@@ -1,0 +1,6 @@
+/** Authentication and authorization guards keep role enforcement at the API boundary. */
+import { NextFunction, Request, Response } from 'express';
+import { Role } from '@prisma/client';
+import { verifyAccess } from '../lib/tokens';
+export function requireAuth(req:Request,res:Response,next:NextFunction) { try { const token=req.headers.authorization?.replace(/^Bearer\s+/,''); if(!token) throw new Error(); req.user=verifyAccess(token); next(); } catch { res.status(401).json({message:'Authentication required'}); } }
+export const requireRole = (...roles:Role[]) => (req:Request,res:Response,next:NextFunction) => !req.user || !roles.includes(req.user.role) ? res.status(403).json({message:'Insufficient permissions'}) : next();

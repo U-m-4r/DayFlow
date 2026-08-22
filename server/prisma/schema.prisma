@@ -1,0 +1,131 @@
+// Dayflow's relational HR model. Relations and uniqueness constraints protect core data integrity.
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALFDAY
+  LEAVE
+}
+enum LeaveType {
+  PAID
+  SICK
+  UNPAID
+}
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+enum NotificationType {
+  LEAVEUPDATE
+  ATTENDANCEALERT
+  GENERAL
+}
+
+model User {
+  id String @id @default(uuid())
+  employeeId String @unique
+  email String @unique
+  passwordHash String
+  role Role @default(EMPLOYEE)
+  isEmailVerified Boolean @default(false)
+  verificationToken String? @unique
+  verificationExpiresAt DateTime?
+  refreshToken String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  profile EmployeeProfile?
+  documents Document[]
+  attendance Attendance[]
+  leaveRequests LeaveRequest[] @relation("Requester")
+  reviewedLeaves LeaveRequest[] @relation("Reviewer")
+  salaries SalaryStructure[] @relation("SalaryOwner")
+  salaryUpdates SalaryStructure[] @relation("SalaryUpdater")
+  notifications Notification[]
+  managerOf EmployeeProfile[] @relation("Manager")
+}
+model EmployeeProfile {
+  id String @id @default(uuid())
+  userId String @unique
+  fullName String
+  phone String?
+  address String?
+  profilePictureUrl String?
+  department String?
+  designation String?
+  dateOfJoining DateTime?
+  managerId String?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manager User? @relation("Manager", fields: [managerId], references: [id])
+}
+model Document {
+  id String @id @default(uuid())
+  userId String
+  docType String
+  fileUrl String
+  uploadedAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  @@index([userId])
+}
+model Attendance {
+  id String @id @default(uuid())
+  userId String
+  date DateTime @db.Date
+  checkIn DateTime?
+  checkOut DateTime?
+  status AttendanceStatus @default(PRESENT)
+  note String?
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  @@unique([userId,date])
+  @@index([userId,date])
+}
+model LeaveRequest {
+  id String @id @default(uuid())
+  userId String
+  leaveType LeaveType
+  startDate DateTime @db.Date
+  endDate DateTime @db.Date
+  remarks String?
+  status LeaveStatus @default(PENDING)
+  reviewerId String?
+  reviewerComment String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation("Requester", fields:[userId], references:[id], onDelete:Cascade)
+  reviewer User? @relation("Reviewer", fields:[reviewerId], references:[id])
+  @@index([userId,startDate,endDate])
+  @@index([status])
+}
+model SalaryStructure {
+  id String @id @default(uuid())
+  userId String
+  baseSalary Decimal @db.Decimal(12,2)
+  allowances Decimal @db.Decimal(12,2)
+  deductions Decimal @db.Decimal(12,2)
+  effectiveFrom DateTime @db.Date
+  updatedBy String
+  user User @relation("SalaryOwner", fields:[userId], references:[id], onDelete:Cascade)
+  updater User @relation("SalaryUpdater", fields:[updatedBy], references:[id])
+  @@index([userId,effectiveFrom])
+}
+model Notification {
+  id String @id @default(uuid())
+  userId String
+  message String
+  type NotificationType
+  isRead Boolean @default(false)
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  @@index([userId,isRead])
+}

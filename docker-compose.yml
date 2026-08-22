@@ -1,0 +1,15 @@
+# Local-only infrastructure for Dayflow. Postgres persists HR data; MailHog captures email.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dayflow
+      POSTGRES_PASSWORD: dayflow
+      POSTGRES_DB: dayflow
+    ports: ["5432:5432"]
+    volumes: ["dayflow-postgres:/var/lib/postgresql/data"]
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports: ["1025:1025", "8025:8025"]
+volumes:
+  dayflow-postgres:
