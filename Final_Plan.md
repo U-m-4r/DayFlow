@@ -1,5 +1,4 @@
-[Plan-3.md](https://github.com/user-attachments/files/31328251/Plan-3.md)
-# Dayflow — HR Management System — Build Plan
+# Dayflow — HR Management System — Final Build Plan
 
 > "Every workday, perfectly aligned."
 > This document is the single source of truth for building Dayflow. Follow it phase by phase. Do not skip validation, error handling, tests, **or the design/motion system** to save time — none of those are optional polish, they are explicit requirements. **§4–§7 (data model, API, screens) now reflect the approved wireframes** — where a wireframe changed behavior from an earlier draft of this plan, that change is called out inline as "wireframe change."
