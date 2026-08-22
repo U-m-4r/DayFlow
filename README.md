@@ -2,6 +2,20 @@
 
 Dayflow is a local-first HR management system for employee profiles, attendance, leave approval, and salary visibility. It uses a React/Vite client, Express REST API, Prisma/PostgreSQL, Socket.IO for leave updates, local uploads, and MailHog for development email.
 
+## Current status
+
+The core Dayflow MVP is in place and working locally with the following feature set completed:
+
+- Authentication and authorization with JWT, refresh flow, email verification, role guards, and secure password handling
+- Employee and admin profile management with field-level permissions and document uploads
+- Daily attendance check-in/check-out logic with admin override support and attendance history views
+- Leave application and approval workflows with overlap validation and immediate real-time status updates
+- Payroll salary structure APIs and employee-facing salary visibility
+- Role-based dashboards for employees and HR/admin users
+- Shared Tailwind design system and API-driven frontend structure for a responsive experience
+
+The project is structured to continue with the remaining polish and scale-up work: richer reports, notification flows, additional UX refinements, and broader test coverage.
+
 ## What is implemented
 
 - JWT access/refresh authentication, verification-email flow, bcrypt password hashing, role guards, and rate-limited auth endpoints.
