@@ -3,3 +3,6 @@ dist/
 .env
 server/uploads/
 coverage/
+*.tsbuildinfo
+client/*.js
+client/*.d.ts
