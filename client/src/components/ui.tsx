@@ -202,22 +202,31 @@ export function Modal({
             onClick={onClose}
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="glass fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 p-8"
-            role="dialog"
-            aria-modal="true"
-            aria-label={title}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={onClose}
           >
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="font-display text-2xl">{title}</h2>
-              <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-slate-100 hover:text-ink">
-                <X size={20} />
-              </button>
-            </div>
-            {children}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="glass w-full max-w-lg max-h-[90vh] overflow-y-auto p-8"
+              role="dialog"
+              aria-modal="true"
+              aria-label={title}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="font-display text-2xl">{title}</h2>
+                <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-slate-100 hover:text-ink">
+                  <X size={20} />
+                </button>
+              </div>
+              {children}
+            </motion.div>
           </motion.div>
         </>
       )}

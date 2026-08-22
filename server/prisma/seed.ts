@@ -87,7 +87,13 @@ async function main() {
 
       // Basic at 40% of wage
       const basicAmount = monthWage * 0.4;
-      const components = [
+      const components: Array<{
+        name: ComponentName;
+        computationType: ComputationType;
+        basisOf: BasisOf;
+        value: number;
+        computedAmount: number;
+      }> = [
         { name: ComponentName.BASIC, computationType: ComputationType.PERCENTAGE, basisOf: BasisOf.WAGE, value: 40, computedAmount: basicAmount },
         { name: ComponentName.HRA, computationType: ComputationType.PERCENTAGE, basisOf: BasisOf.BASIC, value: 50, computedAmount: basicAmount * 0.5 },
         { name: ComponentName.STANDARD_ALLOWANCE, computationType: ComputationType.FIXED, basisOf: BasisOf.WAGE, value: 5000, computedAmount: 5000 },
